@@ -57,6 +57,42 @@ means writing the two prompts and replacing that one function with a Vertex AI
 Also deliberately left alone: the `Exercises completed` multi-select on the Floor
 barre database. Deciding which exercises a session covered is condensing work.
 
+### Writing the prompts
+
+Each file in `prompts/` is sent to the model verbatim, with `{RAW_NOTES}` replaced
+by the session's messages joined with newlines, in the order they arrived. Two
+things the prompt has to get right, because nothing downstream cleans up after it:
+
+- **Output must be markdown**, since Notion parses the reply into blocks server-side.
+- **No preamble and no sign-off.** The first characters of the reply are the first
+  characters of the page — there's no title line to hide behind.
+
+The `--- PROMPT BEGINS ---` line in each placeholder is scaffolding for the stub
+only: `_invoke_llm()` splits on it to find the notes and echo them back. Once a
+real prompt is written and the model call is wired up, the marker stops mattering
+and can go.
+
+Keep the two files genuinely separate rather than factoring out a shared base. A
+class is your students and a floor barre is your own training — they want
+different questions asked of the same kind of notes.
+
+### When you wire up the model
+
+`_invoke_llm()` is the only function that changes, but the project isn't quite
+ready for it. Expect to also:
+
+- enable `aiplatform.googleapis.com` and request access to the Claude model you
+  want in Vertex AI Model Garden — access is off by default, per project, and the
+  approval is a separate step from enabling the API;
+- check the model is actually served in your region. Vertex model availability is
+  regional and `asia-south1` doesn't carry everything; the function can call a
+  model in another region, it just costs a little latency;
+- add `google-cloud-aiplatform` to `requirements.txt`;
+- grant the runtime service account `roles/aiplatform.user`.
+
+No secret is needed — Vertex authenticates as the function's service account,
+which is the main reason to prefer it over calling the Anthropic API directly.
+
 ## Prerequisites
 
 1. **Telegram bot** — message `@BotFather` → `/newbot` → copy the bot token.
@@ -196,6 +232,9 @@ or against different Notion databases, the values to change are all at the top:
 - `NOTION_CLASS_DATA_SOURCE_ID`, `NOTION_FLOOR_DATA_SOURCE_ID` — from 3a above
 - `LOCAL_TZ` — defaults to `Asia/Kolkata`; used to compute the Date field
   correctly, since the function itself runs in UTC
+- `NOTION_VERSION` — leave at `2026-03-11` or later. The page-body `markdown`
+  field doesn't exist in older versions, so an earlier value still creates the
+  page and its properties but silently drops the condensed entry.
 
 Secrets are never in the file: they're mounted from Secret Manager at runtime.
 `ALLOWED_CHAT_ID` comes from the environment so the script stays shareable.
@@ -273,6 +312,11 @@ post '{"update_id":3,"message":{"chat":{"id":<your id>},"text":"/done"}}'
 
 This talks to real Firestore and real Notion — it creates a real page. Delete it
 afterwards. Bump `update_id` each run, or the dedup check will ignore the request.
+
+Local runs share the deployed function's Firestore collection by default, so a
+half-finished test session can collide with a real one. Set
+`FIRESTORE_COLLECTION=buffers-dev` to keep them apart — `buffer.py` reads it, and
+nothing else needs to know.
 
 ## Troubleshooting
 
