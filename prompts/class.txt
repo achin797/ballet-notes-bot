@@ -1,0 +1,15 @@
+PLACEHOLDER — the real condensing prompt for a ballet CLASS session goes here.
+
+Everything below the marker line is sent to the model verbatim, with {RAW_NOTES}
+replaced by the notes as they arrived on Telegram (newline-joined, in order).
+
+The model's reply becomes the Notion page body as-is, so the prompt must specify
+markdown output with no preamble and no sign-off — the first characters of the
+reply are the first characters of the page.
+
+Keep this file as the single place the class prompt is edited. Nothing in the
+Python needs to change when it does.
+
+--- PROMPT BEGINS ---
+
+{RAW_NOTES}
