@@ -21,7 +21,7 @@ _PROMPT_DIR = Path(__file__).parent / "prompts"
 
 # Loaded once at import (cold start), not per request — the files never change
 # at runtime, and a missing file should fail the deploy's first request loudly
-# rather than the first /done of a session you just finished teaching.
+# rather than the first /done after a session.
 _PROMPTS = {
     session_type: (_PROMPT_DIR / f"{session_type}.txt").read_text()
     for session_type in ("class", "floor")

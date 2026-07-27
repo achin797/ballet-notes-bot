@@ -72,9 +72,10 @@ only: `_invoke_llm()` splits on it to find the notes and echo them back. Once a
 real prompt is written and the model call is wired up, the marker stops mattering
 and can go.
 
-Keep the two files genuinely separate rather than factoring out a shared base. A
-class is your students and a floor barre is your own training — they want
-different questions asked of the same kind of notes.
+Keep the two files genuinely separate rather than factoring out a shared base.
+They start identical, but the point of splitting them is that a class and a floor
+barre can ask different things of the notes without one prompt trying to serve
+both. What that difference actually is, is yours to decide when you write them.
 
 ### When you wire up the model
 
@@ -390,10 +391,9 @@ identical to the bot being down.
   raw notes are split across several in the `Raw notes` property. The condensed
   markdown is *not* pre-chunked — splitting it mid-token would corrupt the syntax
   — Notion parses it into blocks server-side.
-- **Prompts are files, not code**: one per session type, loaded at cold start. A
-  class is your students and a floor barre is your own training; the two want
-  different questions asked of the notes, and splitting them now avoids one prompt
-  trying to serve both later.
+- **Prompts are files, not code**: one per session type, loaded at cold start.
+  Splitting them up front is cheap and avoids one prompt trying to serve both
+  session types later; if they end up identical, nothing is lost.
 - **Timezone data**: computing the Date field needs `zoneinfo` to resolve
   `LOCAL_TZ`, but slim Python runtimes often ship without the IANA timezone
   database. `tzdata` is in `requirements.txt` specifically so this resolves

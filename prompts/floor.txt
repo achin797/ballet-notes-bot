@@ -7,9 +7,9 @@ The model's reply becomes the Notion page body as-is, so the prompt must specify
 markdown output with no preamble and no sign-off — the first characters of the
 reply are the first characters of the page.
 
-Kept separate from prompts/class.txt on purpose: a floor barre session is your own
-training, a class is your students' — the two want different questions asked of
-the notes, and splitting them now avoids one prompt trying to serve both.
+Kept separate from prompts/class.txt on purpose, so a floor barre session can ask
+different things of the notes than a class does. If the two prompts end up saying
+the same thing, that is fine — nothing is lost by having split them.
 
 --- PROMPT BEGINS ---
 
