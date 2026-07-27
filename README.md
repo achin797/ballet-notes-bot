@@ -116,10 +116,24 @@ gcloud projects add-iam-policy-binding project-69fd2b15-f478-43ca-b5d \
   --member="serviceAccount:${SA}" --role=roles/datastore.user
 ```
 
+The same service account also runs the *build*, and a new project does not grant
+it build permissions automatically. Without these three roles the very first
+deploy fails with `missing permission on the build service account`:
+
+```bash
+for ROLE in roles/storage.objectViewer roles/logging.logWriter roles/artifactregistry.writer; do
+  gcloud projects add-iam-policy-binding project-69fd2b15-f478-43ca-b5d \
+    --member="serviceAccount:${SA}" --role="$ROLE"
+done
+```
+
 ### 5. Firestore TTL (optional cleanup)
 
 Abandoned sessions and dedup markers carry an `expireAt` timestamp. Correctness
 does not depend on TTL — it is housekeeping, and Firestore deletes up to ~24h late.
+
+**Not applied yet on the current deployment** — the bot works without it; buffer
+documents simply linger past their 6h window instead of being swept.
 
 ```bash
 gcloud firestore fields ttls update expireAt \
@@ -133,16 +147,27 @@ export ALLOWED_CHAT_ID=<your numeric telegram id>
 ./deploy.sh
 ```
 
-Note the printed function URL.
+The script prints the function URL at the end. The current deployment is at:
+
+```
+https://ballet-notes-bot-4mjqzwf6pq-el.a.run.app
+```
+
+(also reachable as
+`https://asia-south1-project-69fd2b15-f478-43ca-b5d.cloudfunctions.net/ballet-notes-bot`)
 
 ### 7. Register the webhook
 
+Read both values straight out of Secret Manager rather than retyping them:
+
 ```bash
-BOT_TOKEN=<your bot token>
-WEBHOOK_SECRET=<the same random string you stored in Secret Manager>
+BOT_TOKEN=$(gcloud secrets versions access latest --secret=telegram-bot-token \
+  --project=project-69fd2b15-f478-43ca-b5d)
+WEBHOOK_SECRET=$(gcloud secrets versions access latest --secret=telegram-webhook-secret \
+  --project=project-69fd2b15-f478-43ca-b5d)
 
 curl "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
-  -d "url=<function url from deploy.sh>" \
+  -d "url=https://ballet-notes-bot-4mjqzwf6pq-el.a.run.app" \
   -d "secret_token=${WEBHOOK_SECRET}"
 
 curl "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo"
@@ -196,6 +221,16 @@ afterwards.
 gcloud functions logs read ballet-notes-bot \
   --project=project-69fd2b15-f478-43ca-b5d --region=asia-south1 --gen2 --limit=50
 ```
+
+**Deploy fails with `missing permission on the build service account`** — the
+default compute service account is missing the build roles. Apply the second
+grant block in step 4, then re-run `./deploy.sh`. The build log itself is not
+useful here; it fails at the source-fetch step before any of your code runs.
+
+**Deploy warns `Cloud Run service ... was not found. The service was redeployed
+with default values.`** — harmless. It shows up when an earlier deploy failed
+partway and left no service behind. The deploy printing this warning still
+succeeded; check `state: ACTIVE` in its output.
 
 **Notion 404** — the integration is not connected to that database. Redo step 2
 for the database that failed.
