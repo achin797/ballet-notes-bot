@@ -1,16 +1,24 @@
 # Ballet notes bot
 
 Send raw notes to a Telegram bot after a ballet class or a floor barre session.
-It condenses them and adds an entry to the matching Notion database.
+It condenses them and adds a page to the matching Notion database: title (month
+and day, e.g. "July 27"), today's date, the raw notes, and the condensed entry as
+the page body.
+
+```
+raw notes -> Telegram bot -> Cloud Function (condense + write to Notion) -> Notion page
+```
+
+## Architecture
 
 ```
 You (Telegram)
-      │  /class or /floor, then raw notes, then /done
+      │  /class or /floor, then raw notes as one or more messages, then /done
       ▼
 Telegram Bot API
       │  webhook POST on every message
       ▼
-Cloud Function (gen2)  — main.py orchestrates everything below
+Cloud Function, gen2  (single function — main.py orchestrates everything below)
       │
       ├─ buffers messages & dedupes retried webhooks ──▶ Firestore
       ├─ condenses the notes on /done ─────────────────▶ prompts/ + LLM  (STUBBED)
@@ -21,62 +29,71 @@ Cloud Function (gen2)  — main.py orchestrates everything below
                                                      or Floor barre notes
 ```
 
-| Piece            | Role                                                        | File                          |
-|------------------|-------------------------------------------------------------|-------------------------------|
-| Telegram bot     | the only interface — send notes, get a link back            | `telegram.py`                 |
-| Cloud Function   | receives the webhook, routes commands, runs the pipeline    | `main.py`                     |
-| Firestore        | holds a session's notes until `/done`; dedupes retries       | `buffer.py`                   |
-| Condenser        | runs the per-session-type prompt over the raw notes          | `condense.py`, `prompts/*.txt`|
-| Notion API       | creates the page: Name, Date, Raw notes + condensed body     | `notion.py`                   |
+| Piece           | Role                                                             | File                           |
+|-----------------|------------------------------------------------------------------|--------------------------------|
+| Telegram bot    | your only interface — send notes, get a confirmation + link back | `telegram.py`                  |
+| Cloud Function  | receives the webhook, routes commands, orchestrates the pipeline | `main.py`                      |
+| Firestore       | holds a session's buffered messages until `/done`; dedupes retries | `buffer.py`                  |
+| Condenser       | runs the per-session-type prompt over the raw notes               | `condense.py`, `prompts/*.txt` |
+| Notion API      | creates the page: Name, Date, Raw notes + condensed body          | `notion.py`                    |
 
-Everything runs on request. Cloud Functions and Firestore only cost anything
-while actually processing a message, which for a few sessions a week is
-effectively free.
+Everything runs on request — there's no server to keep up. Cloud Functions and
+Firestore only cost anything while actually processing a message, which for this
+use case (a few sessions a week) is effectively free.
 
-## Status: step 1 of a larger roadmap
+## What's done and what isn't
 
-The pipeline is complete end to end **except the condensing itself**:
+This is step 1 of a larger roadmap. The pipeline is complete end to end **except
+the condensing itself**:
 
 - `prompts/class.txt` and `prompts/floor.txt` are placeholders.
-- `condense._invoke_llm()` does not call a model — it echoes the notes back.
+- `condense._invoke_llm()` doesn't call a model — it echoes the notes back.
 
-Everything around that is real and exercised: templates are loaded, `{RAW_NOTES}`
-is substituted, and the result is what lands in Notion. Finishing the condenser
+Everything around that is real and runs: the templates load, `{RAW_NOTES}` is
+substituted, and the result is what lands in Notion. Finishing the condenser
 means writing the two prompts and replacing that one function with a Vertex AI
 (Claude) call. Nothing else has to change.
 
 Also deliberately left alone: the `Exercises completed` multi-select on the Floor
 barre database. Deciding which exercises a session covered is condensing work.
 
-## The two databases
+## Prerequisites
 
-Both already exist and share the same three properties, so `session_type` only
-picks which one to write to:
+1. **Telegram bot** — message `@BotFather` → `/newbot` → copy the bot token.
+   Message `@userinfobot` to get your own numeric Telegram user id.
+2. **Notion integration** — [notion.so/my-integrations](https://notion.so/my-integrations)
+   → New internal integration → copy the secret token.
+3. **Two Notion databases** — see 3a below for the exact properties they need.
+4. **Share both databases with the integration** — open each one in Notion →
+   `...` menu → Connections → add your integration. Without this the API returns
+   404, and it's easy to do for one database and forget the other.
+5. **GCP account with billing enabled, and the `gcloud` CLI installed**
+   (`brew install --cask google-cloud-sdk`). See 5a and 5b below — 5b is the part
+   that will otherwise fail your first deploy.
 
-| Database          | Properties                                                    |
-|-------------------|---------------------------------------------------------------|
-| Ballet class notes| `Name` (title), `Date` (date), `Raw notes` (text)             |
-| Floor barre notes | the same three, plus `Exercises completed` (multi-select)     |
+### 3a. The two databases
 
-Data source ids are set in `deploy.sh`.
+Create both by hand in Notion. Property names must match **exactly**, including
+capitalisation — `notion.py` addresses them by literal string, so `Raw Notes`
+instead of `Raw notes` is a 400 at write time.
 
-## Setup
+| Database             | Properties                                                        |
+|----------------------|-------------------------------------------------------------------|
+| Ballet class notes   | `Name` (title), `Date` (date), `Raw notes` (text)                 |
+| Floor barre notes    | the same three, plus `Exercises completed` (multi-select)         |
 
-### 1. Telegram bot
+`Name` is the default title property every Notion database starts with — you only
+have to add the rest. The `Exercises completed` options are yours to define; the
+bot never writes to it.
 
-- Message `@BotFather` → `/newbot` → copy the bot token.
-- Message `@userinfobot` to get your numeric user id — that becomes `ALLOWED_CHAT_ID`.
+Then grab each database's **data source id**: `...` menu → Manage data sources →
+Copy data source ID. You'll need both in `deploy.sh`. Note this is *not* the id in
+the database's URL — those are different objects.
 
-### 2. Notion integration
-
-- [notion.so/my-integrations](https://notion.so/my-integrations) → new internal
-  integration → copy the secret.
-- Open **each** database → `...` → Connections → add the integration. Without
-  this the API returns 404.
-
-### 3. GCP project
+### 5a. Point gcloud at the project and turn on the APIs
 
 ```bash
+gcloud auth login
 gcloud config set project project-69fd2b15-f478-43ca-b5d
 
 gcloud services enable \
@@ -87,78 +104,113 @@ gcloud services enable \
   firestore.googleapis.com \
   secretmanager.googleapis.com
 
-# Firestore, Native mode. One per project, and the mode cannot be changed later.
+# Firestore, Native mode. One database per project, and the mode can never be
+# changed afterwards — if this project already uses Datastore mode, use a new project.
 gcloud firestore databases create --location=asia-south1
 ```
 
-### 4. Secrets
+### 5b. Store the secrets and grant the service account access
 
-Never pass these on a command line that lands in shell history — pipe from stdin:
+Pipe secrets from stdin rather than passing them as arguments, so they don't land
+in your shell history:
 
 ```bash
-printf '%s' 'ntn_...'  | gcloud secrets create notion-token            --data-file=-
-printf '%s' '<token>'  | gcloud secrets create telegram-bot-token      --data-file=-
+printf '%s' 'ntn_...' | gcloud secrets create notion-token       --data-file=-
+printf '%s' '<bot token>' | gcloud secrets create telegram-bot-token --data-file=-
 printf '%s' "$(openssl rand -hex 20)" | gcloud secrets create telegram-webhook-secret --data-file=-
 ```
 
-Grant the function's runtime service account read access to each:
+The webhook secret is just a random string — you'll pass the same value to
+Telegram in the "Register the webhook" step below.
+
+Now the permissions. The default compute service account both **runs** the
+function and **builds** it, and a new project grants it neither automatically:
 
 ```bash
 PROJECT_NUMBER=$(gcloud projects describe project-69fd2b15-f478-43ca-b5d --format='value(projectNumber)')
 SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
+# Runtime: read the secrets, read and write Firestore.
 for S in notion-token telegram-bot-token telegram-webhook-secret; do
   gcloud secrets add-iam-policy-binding "$S" \
     --member="serviceAccount:${SA}" --role=roles/secretmanager.secretAccessor
 done
-
 gcloud projects add-iam-policy-binding project-69fd2b15-f478-43ca-b5d \
   --member="serviceAccount:${SA}" --role=roles/datastore.user
-```
 
-The same service account also runs the *build*, and a new project does not grant
-it build permissions automatically. Without these three roles the very first
-deploy fails with `missing permission on the build service account`:
-
-```bash
+# Build: fetch the source, push the image, write build logs.
 for ROLE in roles/storage.objectViewer roles/logging.logWriter roles/artifactregistry.writer; do
   gcloud projects add-iam-policy-binding project-69fd2b15-f478-43ca-b5d \
     --member="serviceAccount:${SA}" --role="$ROLE"
 done
 ```
 
-### 5. Firestore TTL (optional cleanup)
+Skip that second block and the first deploy dies before it reaches any of your
+code, with an error that doesn't name the missing role:
+
+```
+ERROR: (gcloud.functions.deploy) OperationError: code=3, message=Build failed with
+status: FAILURE. Could not build the function due to a missing permission on the
+build service account.
+```
+
+### 5c. Firestore TTL (optional cleanup)
 
 Abandoned sessions and dedup markers carry an `expireAt` timestamp. Correctness
-does not depend on TTL — it is housekeeping, and Firestore deletes up to ~24h late.
-
-**Not applied yet on the current deployment** — the bot works without it; buffer
-documents simply linger past their 6h window instead of being swept.
+doesn't depend on this — it's housekeeping, and Firestore deletes up to ~24h late.
+Not currently applied on the live deployment.
 
 ```bash
 gcloud firestore fields ttls update expireAt \
   --collection-group=buffers --enable-ttl
 ```
 
-### 6. Deploy
+## Confirm the Notion databases (before deploying)
+
+```bash
+export NOTION_TOKEN=ntn_...
+for ID in 3aa3ef88-7ec8-8075-95b7-000b8a6396eb 6c63ef88-7ec8-822b-b773-8786b5e160d0; do
+  curl -s "https://api.notion.com/v1/data_sources/$ID" \
+    -H "Authorization: Bearer $NOTION_TOKEN" \
+    -H "Notion-Version: 2026-03-11" | python3 -m json.tool | head -30
+done
+```
+
+Expect each response's `properties` to contain `Name`, `Date` and `Raw notes`
+(and `Exercises completed` on the floor barre one). If you get a 404, redo
+prerequisite 4 — the integration isn't connected to that database. Doing this
+first is much faster than finding out from a failed `/done` after a class.
+
+## Deploy
 
 ```bash
 export ALLOWED_CHAT_ID=<your numeric telegram id>
 ./deploy.sh
 ```
 
-The script prints the function URL at the end. The current deployment is at:
+`deploy.sh` holds the non-secret configuration inline, so a deploy is fully
+described by that one file. If you're standing this up on a different GCP project
+or against different Notion databases, the values to change are all at the top:
+
+- `PROJECT_ID`, `REGION`, `FUNCTION_NAME`
+- `NOTION_CLASS_DATA_SOURCE_ID`, `NOTION_FLOOR_DATA_SOURCE_ID` — from 3a above
+- `LOCAL_TZ` — defaults to `Asia/Kolkata`; used to compute the Date field
+  correctly, since the function itself runs in UTC
+
+Secrets are never in the file: they're mounted from Secret Manager at runtime.
+`ALLOWED_CHAT_ID` comes from the environment so the script stays shareable.
+
+The script prints the function URL when it finishes. The current deployment is:
 
 ```
 https://ballet-notes-bot-4mjqzwf6pq-el.a.run.app
 ```
 
-(also reachable as
-`https://asia-south1-project-69fd2b15-f478-43ca-b5d.cloudfunctions.net/ballet-notes-bot`)
+Re-running `./deploy.sh` after a code change is all a redeploy takes.
 
-### 7. Register the webhook
+## Register the Telegram webhook
 
-Read both values straight out of Secret Manager rather than retyping them:
+Read both values back out of Secret Manager rather than retyping them:
 
 ```bash
 BOT_TOKEN=$(gcloud secrets versions access latest --secret=telegram-bot-token \
@@ -173,21 +225,30 @@ curl "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
 curl "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo"
 ```
 
-The second call should show your URL, `pending_update_count: 0`, and no
+The second command should show your URL with `pending_update_count: 0` and no
 `last_error_message`.
 
 ## Using it
 
-1. `/class` or `/floor`
-2. your raw notes, as many messages as you like
-3. `/done`
+1. Send `/class` or `/floor` to tell the bot which kind of session it was.
+2. Send your raw notes, split across as many messages as you like (Telegram caps
+   a single message at 4096 characters).
+3. Send `/done`.
 
-The bot replies with a link to the new Notion page. `/quit` discards the current
-session. `/start` or `/help` repeats the instructions.
+The bot replies `✅ Added to Notion` with a link once the page is created.
+
+Other commands: `/start` or `/help` for usage instructions, `/quit` to discard the
+current session and start over. Notes sent before `/class` or `/floor` are
+refused rather than buffered — the bot won't guess which database they belong in.
 
 ## Local testing
 
+Firestore needs application default credentials locally; without them the client
+fails on the first request:
+
 ```bash
+gcloud auth application-default login
+
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
@@ -211,60 +272,85 @@ post '{"update_id":3,"message":{"chat":{"id":<your id>},"text":"/done"}}'
 ```
 
 This talks to real Firestore and real Notion — it creates a real page. Delete it
-afterwards.
+afterwards. Bump `update_id` each run, or the dedup check will ignore the request.
 
 ## Troubleshooting
 
-**Bot replies with the generic error** — get the traceback:
-
-```bash
-gcloud functions logs read ballet-notes-bot \
-  --project=project-69fd2b15-f478-43ca-b5d --region=asia-south1 --gen2 --limit=50
+**Deploy fails with a missing build permission** — see 5b; the compute service
+account doesn't have the build roles. The build log won't help: it fails at the
+source-fetch step before your code runs.
+```
+Could not build the function due to a missing permission on the build service account.
 ```
 
-**Deploy fails with `missing permission on the build service account`** — the
-default compute service account is missing the build roles. Apply the second
-grant block in step 4, then re-run `./deploy.sh`. The build log itself is not
-useful here; it fails at the source-fetch step before any of your code runs.
+**Deploy warns about a missing Cloud Run service** — harmless. It appears when an
+earlier deploy failed partway and left nothing behind. The deploy printing it
+still succeeded; confirm with `state: ACTIVE` in its output.
+```
+[WARNING] Cloud Run service .../services/ballet-notes-bot for the function was not
+found. The service was redeployed with default values.
+```
 
-**Deploy warns `Cloud Run service ... was not found. The service was redeployed
-with default values.`** — harmless. It shows up when an earlier deploy failed
-partway and left no service behind. The deploy printing this warning still
-succeeded; check `state: ACTIVE` in its output.
+**The bot replies with a generic error** — get the real traceback:
+```bash
+gcloud functions logs read ballet-notes-bot --gen2 \
+  --project=project-69fd2b15-f478-43ca-b5d --region=asia-south1 --limit=50
+```
 
-**Notion 404** — the integration is not connected to that database. Redo step 2
-for the database that failed.
+**Notion 404** — the integration isn't connected to that database. Redo
+prerequisite 4 for whichever one failed, then re-run the confirm step above.
+
+**Notion 400 on `/done`** — usually a property name mismatch. The database needs
+`Name`, `Date` and `Raw notes` spelled exactly that way (see 3a).
 
 **Nothing happens at all** — check `getWebhookInfo` for `last_error_message`, and
 confirm the `secret_token` you registered matches the `telegram-webhook-secret`
-value in Secret Manager. A mismatch is silently ignored by design.
+value in Secret Manager. A mismatch is silently ignored by design, so it looks
+identical to the bot being down.
 
 ## Verification checklist
 
-- [ ] `/class` + notes + `/done` → page in **Ballet class notes** with today's
-      date, a "Month Day" title, and the raw notes preserved.
-- [ ] `/floor` + notes + `/done` → page in **Floor barre notes**, same shape.
+- [ ] The Notion confirm curl above returns the expected properties for both databases.
+- [ ] `./deploy.sh` succeeds and prints a function URL.
+- [ ] `getWebhookInfo` shows no `last_error_message`.
+- [ ] End-to-end: `/class` → 2-3 messages of real notes → `/done` → bot confirms
+      and a new page appears in **Ballet class notes** with today's date, a
+      month-and-day title, and the raw notes preserved.
+- [ ] Same again with `/floor` → the page lands in **Floor barre notes** instead.
 - [ ] Notes sent before `/class` or `/floor` → bot asks which session; nothing buffered.
 - [ ] `/quit` mid-session → notes discarded, no page created.
-- [ ] POST to the function URL with no `X-Telegram-Bot-Api-Secret-Token` → 200,
-      no page created.
-- [ ] Message the bot from a different Telegram account → "Not authorized", no page.
+- [ ] Security: POST to the function URL without the `X-Telegram-Bot-Api-Secret-Token`
+      header → silently ignored (200, no page). Message the bot from a different
+      Telegram account → "Not authorized", no page.
 
 ## Notes on the design
 
+- **Session type is an explicit command.** `/class` and `/floor` set it before any
+  notes are buffered, rather than a button at `/done` or inferring it from the
+  notes. A button means handling a second Telegram update type for a decision you
+  can state in one word; inference means an extra model call that can be wrong.
 - **Buffering**: raw notes routinely exceed Telegram's 4096-char message cap, so
-  messages accumulate in Firestore until `/done`. Sessions self-expire after 6h.
+  messages accumulate in Firestore until `/done` (or are dropped by `/quit`).
+  Abandoned sessions self-expire after 6 hours.
 - **Ordering**: chunks are appended with a read-modify-write transaction rather
-  than `ArrayUnion`, which dedupes equal values and promises no order — both
-  wrong here, since arrival order is the point and a repeated line may be real.
-- **Idempotency**: Telegram retries a webhook that doesn't get a fast 200. Each
-  `update_id` is claimed transactionally (1h TTL), so a slow LLM call can never
+  than `ArrayUnion`, which dedupes equal values and makes no ordering promise —
+  both wrong here, since arrival order is the point and a repeated line may be
+  something you genuinely wrote twice.
+- **Idempotency**: Telegram retries the webhook if it doesn't get a fast 200. Each
+  `update_id` is claimed transactionally (1h TTL) so a slow model call can never
   produce two Notion pages.
-- **Auth**: the function is deployed unauthenticated because Telegram cannot sign
+- **Auth**: the function is deployed unauthenticated because Telegram can't sign
   requests any other way. The shared `secret_token` header is the entire gate;
   unsigned requests get a silent 200 and are dropped.
-- **Chunking**: Notion caps a rich_text object at 2000 characters, so raw notes
-  are split across several. The condensed markdown is *not* pre-chunked —
-  splitting it mid-token would corrupt the syntax — Notion parses it server-side.
-- **Timezone data**: resolving `Asia/Kolkata` needs the IANA database, which slim
-  Python runtimes often omit. `tzdata` is in `requirements.txt` for exactly that.
+- **Chunking**: Notion caps a single rich_text object at 2000 characters, so long
+  raw notes are split across several in the `Raw notes` property. The condensed
+  markdown is *not* pre-chunked — splitting it mid-token would corrupt the syntax
+  — Notion parses it into blocks server-side.
+- **Prompts are files, not code**: one per session type, loaded at cold start. A
+  class is your students and a floor barre is your own training; the two want
+  different questions asked of the notes, and splitting them now avoids one prompt
+  trying to serve both later.
+- **Timezone data**: computing the Date field needs `zoneinfo` to resolve
+  `LOCAL_TZ`, but slim Python runtimes often ship without the IANA timezone
+  database. `tzdata` is in `requirements.txt` specifically so this resolves
+  instead of raising `ZoneInfoNotFoundError` at runtime.
