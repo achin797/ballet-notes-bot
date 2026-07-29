@@ -205,7 +205,9 @@ gcloud firestore fields ttls update expireAt \
 ## Confirm the Notion databases (before deploying)
 
 ```bash
-export NOTION_TOKEN=ntn_...
+NOTION_TOKEN=$(gcloud secrets versions access latest --secret=notion-token \
+  --project=project-69fd2b15-f478-43ca-b5d)
+
 for ID in 3aa3ef88-7ec8-8075-95b7-000b8a6396eb 6c63ef88-7ec8-822b-b773-8786b5e160d0; do
   curl -s "https://api.notion.com/v1/data_sources/$ID" \
     -H "Authorization: Bearer $NOTION_TOKEN" \
