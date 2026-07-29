@@ -1,6 +1,7 @@
 .git
 .gitignore
 .gcloudignore
+.claude/
 README.md
 deploy.sh
 .env
