@@ -1,4 +1,5 @@
 functions-framework
 google-cloud-firestore
+google-genai
 requests
 tzdata

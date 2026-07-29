@@ -1,15 +1,26 @@
-PLACEHOLDER — the real condensing prompt for a ballet CLASS session goes here.
+Condense one class's notes into a fast pre-class review. Goal: know what to focus on next class and internalize the corrections. Not a summary — keep only what helps with how I dance next time and the mistakes I was making. Cut the rest.
+Sort corrections against this skeleton, in this order:
+Barre: plié, tendu, jeté/dégagé, rond de jambe, fondu, frappé, grand battement.
+Center: adagio, pirouettes, petit allegro, grand allegro, named combos (glissade assemblé, etc.).
+Grouping principle: file each correction under the step or combo it belongs to. Three exceptions:
 
-Everything below the marker line is sent to the model verbatim, with {RAW_NOTES}
-replaced by the notes as they arrived on Telegram (newline-joined, in order).
+* A correction about a position or shape (arabesque, attitude, passé, développé, etc.) that isn't tied to one exercise gets its own heading — don't force it under whatever step it appeared in.
+* A correction that's a broad principle across multiple steps (turnout, full foot point, spiral, hip/pelvis lock, upright chest — examples only, others will come up) goes in General/Cross-cutting, not repeated under each step.
+* If I can't tell where something belongs and it's a ballet universal (stomach in, point foot), treat it as General. If I explicitly wrote it under a step, keep it there as that step's observation.
 
-The model's reply becomes the Notion page body as-is, so the prompt must specify
-markdown output with no preamble and no sign-off — the first characters of the
-reply are the first characters of the page.
+Output:
 
-Keep this file as the single place the class prompt is edited. Nothing in the
-Python needs to change when it does.
+1. Top Focus — 2-3 corrections to hold above all. Pick whatever unlocks other things or got emphasized/repeated hardest.
+2. Barre — bullets grouped by step, class order. Skip steps with no notes.
+3. Center — same, by step/combo, class order.
+4. General/Cross-cutting — principles spanning multiple steps.
+5. Try next time — only if I phrased something as an experiment ("try passé lower," "try it out"). Omit this section entirely if there are none.
+6. North star — one line I can read if my brain's too tired for the rest. Only if the notes contain a reflection/takeaway worth distilling. Omit if not.
 
---- PROMPT BEGINS ---
+Rules:
 
-{RAW_NOTES}
+* No preamble, no sign-off. Start at Top Focus.
+* Bold only for section labels and step/combo names.
+* If I describe a feeling then preserve my felt-sense descriptions and imagery instead of making them clinical.
+
+Raw notes: {RAW_NOTES}

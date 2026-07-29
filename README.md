@@ -43,16 +43,18 @@ use case (a few sessions a week) is effectively free.
 
 ## What's done and what isn't
 
-This is step 1 of a larger roadmap. The pipeline is complete end to end **except
-the condensing itself**:
+This is step 1 of a larger roadmap. Class sessions are fully wired: `prompts/class.txt`
+is real and `condense._invoke_llm()` calls Gemini 3.6 Flash on Vertex AI for them.
+Floor barre sessions are still a stub:
 
-- `prompts/class.txt` and `prompts/floor.txt` are placeholders.
-- `condense._invoke_llm()` doesn't call a model — it echoes the notes back.
+- `prompts/floor.txt` is a placeholder.
+- `condense._invoke_llm()` echoes floor barre notes back unchanged instead of calling the model.
 
 Everything around that is real and runs: the templates load, `{RAW_NOTES}` is
 substituted, and the result is what lands in Notion. Finishing the condenser
-means writing the two prompts and replacing that one function with a Vertex AI
-(Claude) call. Nothing else has to change.
+means writing `prompts/floor.txt` — `_invoke_llm()` already branches on
+`session_type` and just needs the `"floor"` stub branch removed once that prompt
+exists.
 
 Also deliberately left alone: the `Exercises completed` multi-select on the Floor
 barre database. Deciding which exercises a session covered is condensing work.
@@ -67,32 +69,36 @@ things the prompt has to get right, because nothing downstream cleans up after i
 - **No preamble and no sign-off.** The first characters of the reply are the first
   characters of the page — there's no title line to hide behind.
 
-The `--- PROMPT BEGINS ---` line in each placeholder is scaffolding for the stub
-only: `_invoke_llm()` splits on it to find the notes and echo them back. Once a
-real prompt is written and the model call is wired up, the marker stops mattering
-and can go.
+The `--- PROMPT BEGINS ---` line in `prompts/floor.txt` is scaffolding for that
+stub only: `_invoke_llm()` splits on it to find the notes and echo them back.
+Once `prompts/floor.txt` is written for real, drop that marker and the `"floor"`
+stub branch in `_invoke_llm()` together — `prompts/class.txt` already shows the
+end state with no marker.
 
 Keep the two files genuinely separate rather than factoring out a shared base.
 They start identical, but the point of splitting them is that a class and a floor
 barre can ask different things of the notes without one prompt trying to serve
 both. What that difference actually is, is yours to decide when you write them.
 
-### When you wire up the model
+### The model call
 
-`_invoke_llm()` is the only function that changes, but the project isn't quite
-ready for it. Expect to also:
+`condense._invoke_llm()` calls **Gemini 3.6 Flash** on Vertex AI (`gemini-3.6-flash`,
+via the `google-genai` SDK, `vertexai=True`). Requires:
 
-- enable `aiplatform.googleapis.com` and request access to the Claude model you
-  want in Vertex AI Model Garden — access is off by default, per project, and the
-  approval is a separate step from enabling the API;
-- check the model is actually served in your region. Vertex model availability is
-  regional and `asia-south1` doesn't carry everything; the function can call a
-  model in another region, it just costs a little latency;
-- add `google-cloud-aiplatform` to `requirements.txt`;
-- grant the runtime service account `roles/aiplatform.user`.
+- `aiplatform.googleapis.com` enabled (see 5a) — no separate Model Garden access
+  request needed, unlike Anthropic models on Vertex;
+- `VERTEX_PROJECT` / `VERTEX_LOCATION` env vars (set in `deploy.sh`).
+  `VERTEX_LOCATION` defaults to `"global"`, which sidesteps Vertex's per-region
+  model availability — no need to check whether a given region carries this model;
+- `google-genai` in `requirements.txt`;
+- the runtime service account holding `roles/aiplatform.user` (see 5b).
 
-No secret is needed — Vertex authenticates as the function's service account,
-which is the main reason to prefer it over calling the Anthropic API directly.
+No secret is needed — Vertex authenticates as the function's service account.
+
+The client sets a 100s request timeout (`condense.py`), 20s under the function's
+120s limit, so a slow model call surfaces as a caught exception with a Telegram
+error reply instead of a hard Cloud Functions kill that leaves the user hanging
+with no response at all.
 
 ## Prerequisites
 
@@ -139,7 +145,8 @@ gcloud services enable \
   run.googleapis.com \
   artifactregistry.googleapis.com \
   firestore.googleapis.com \
-  secretmanager.googleapis.com
+  secretmanager.googleapis.com \
+  aiplatform.googleapis.com
 
 # Firestore, Native mode. One database per project, and the mode can never be
 # changed afterwards — if this project already uses Datastore mode, use a new project.
@@ -174,6 +181,8 @@ for S in notion-token telegram-bot-token telegram-webhook-secret; do
 done
 gcloud projects add-iam-policy-binding project-69fd2b15-f478-43ca-b5d \
   --member="serviceAccount:${SA}" --role=roles/datastore.user
+gcloud projects add-iam-policy-binding project-69fd2b15-f478-43ca-b5d \
+  --member="serviceAccount:${SA}" --role=roles/aiplatform.user
 
 # Build: fetch the source, push the image, write build logs.
 for ROLE in roles/storage.objectViewer roles/logging.logWriter roles/artifactregistry.writer; do
@@ -297,6 +306,7 @@ pip install -r requirements.txt
 export TELEGRAM_BOT_TOKEN=... TELEGRAM_WEBHOOK_SECRET=test-secret ALLOWED_CHAT_ID=...
 export NOTION_TOKEN=... NOTION_CLASS_DATA_SOURCE_ID=... NOTION_FLOOR_DATA_SOURCE_ID=...
 export GOOGLE_CLOUD_PROJECT=project-69fd2b15-f478-43ca-b5d
+export VERTEX_PROJECT=project-69fd2b15-f478-43ca-b5d
 
 functions-framework --target=main --debug
 ```
