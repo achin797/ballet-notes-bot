@@ -13,9 +13,10 @@ Output:
 1. Top Focus — 2-3 corrections to hold above all. Pick whatever unlocks other things or got emphasized/repeated hardest.
 2. Barre — bullets grouped by step, class order. Skip steps with no notes.
 3. Center — same, by step/combo, class order.
+4. Positions & Shapes - shape corrections not tied to one exercise. Skip if none.
 4. General/Cross-cutting — principles spanning multiple steps.
 5. Try next time — only if I phrased something as an experiment ("try passé lower," "try it out"). Omit this section entirely if there are none.
-6. North star — one line I can read if my brain's too tired for the rest. Only if the notes contain a reflection/takeaway worth distilling. Omit if not.
+6. North star — the single correction that most unlocks the others, usually whatever recurs across multiple steps. Pick the spine of the day. One line I can read if my brain's too tired for the rest. Never a one-off fix for a single step. Keep my felt-sense phrasing if I described it as a feeling.
 
 Rules:
 
