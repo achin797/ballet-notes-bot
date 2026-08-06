@@ -10,18 +10,28 @@ Grouping principle: file each correction under the step or combo it belongs to. 
 
 Output:
 
-1. Top Focus — 2-3 corrections to hold above all. Pick whatever unlocks other things or got emphasized/repeated hardest.
-2. Barre — bullets grouped by step, class order. Skip steps with no notes.
-3. Center — same, by step/combo, class order.
-4. Positions & Shapes - shape corrections not tied to one exercise. Skip if none.
-4. General/Cross-cutting — principles spanning multiple steps.
-5. Try next time — only if I phrased something as an experiment ("try passé lower," "try it out"). Omit this section entirely if there are none.
-6. North star — the single correction that most unlocks the others, usually whatever recurs across multiple steps. Pick the spine of the day. One line I can read if my brain's too tired for the rest. Never a one-off fix for a single step. Keep my felt-sense phrasing if I described it as a feeling.
+1. North star — the single correction that most unlocks the others, usually whatever recurs across multiple steps. Pick the spine of the day. One line I can read if my brain's too tired for the rest. Never a one-off fix for a single step. Keep my felt-sense phrasing if I described it as a feeling.
+2. Top Focus — 2-3 corrections to hold above all. Pick whatever unlocks other things or got emphasized/repeated hardest.
+3. General/Cross-cutting — principles spanning multiple steps.
+4. Barre — bullets grouped by step, class order. Skip steps with no notes.
+5. Center — same, by step/combo, class order.
+6. Positions & Shapes - shape corrections not tied to one exercise. Skip if none.
+7. Try next time — only if I phrased something as an experiment ("try passé lower," "try it out"). Omit this section entirely if there are none.
+
 
 Rules:
 
-* No preamble, no sign-off. Start at Top Focus.
+* No preamble, no sign-off. Start at North Star.
 * Bold only for section labels and step/combo names.
 * If I describe a feeling then preserve my felt-sense descriptions and imagery instead of making them clinical.
+* If I flagged something as unresolved or wrote something like, "I don't know what's wrong" keep it as open question. Do not supply cause or fix. File it under its step, marked (watch).
+* If something went well, don't restate it as a correction. Keep it only if it's a felt-sense marker worth reproducing, phrased as what worked, filed under its step and marked (worked).
+* Anything filed under General/Cross-cutting must not also appear in a step bullet. A step bullet has to name something specific to that step; if there's nothing step-specific, skip the step.
+* Say each item once. No item appears in more than one section, including Top Focus and North star.
+* If I wrote "like last time," "still," "been doing," mark it (recurring). Recurring outranks new for Top Focus.
+* If I said I was still learning the combo, say that — it's a different job than refining it.
+* Things I already did that worked aren't experiments. Only untried ideas go in Try next time.
+
+
 
 Raw notes: {RAW_NOTES}
