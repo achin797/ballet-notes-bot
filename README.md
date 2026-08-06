@@ -21,7 +21,7 @@ Telegram Bot API
 Cloud Function, gen2  (single function — main.py orchestrates everything below)
       │
       ├─ buffers messages & dedupes retried webhooks ──▶ Firestore
-      ├─ condenses the notes on /done ─────────────────▶ prompts/ + LLM  (STUBBED)
+      ├─ condenses the notes on /done ─────────────────▶ prompts/ + LLM
       └─ writes the finished entry ────────────────────▶ Notion API
                                                               │
                                                               ▼
@@ -43,18 +43,11 @@ use case (a few sessions a week) is effectively free.
 
 ## What's done and what isn't
 
-This is step 1 of a larger roadmap. Class sessions are fully wired: `prompts/class.txt`
-is real and `condense._invoke_llm()` calls Gemini 3.6 Flash on Vertex AI for them.
-Floor barre sessions are still a stub:
-
-- `prompts/floor.txt` is a placeholder.
-- `condense._invoke_llm()` echoes floor barre notes back unchanged instead of calling the model.
-
-Everything around that is real and runs: the templates load, `{RAW_NOTES}` is
-substituted, and the result is what lands in Notion. Finishing the condenser
-means writing `prompts/floor.txt` — `_invoke_llm()` already branches on
-`session_type` and just needs the `"floor"` stub branch removed once that prompt
-exists.
+This is step 1 of a larger roadmap. Both session types are fully wired:
+`prompts/class.txt` and `prompts/floor.txt` are both real prompts, and
+`condense._invoke_llm()` calls Gemini 3.6 Flash on Vertex AI for either one. The
+templates load, `{RAW_NOTES}` is substituted, and the model's reply is what lands
+in Notion.
 
 Also deliberately left alone: the `Exercises completed` multi-select on the Floor
 barre database. Deciding which exercises a session covered is condensing work.
@@ -69,16 +62,10 @@ things the prompt has to get right, because nothing downstream cleans up after i
 - **No preamble and no sign-off.** The first characters of the reply are the first
   characters of the page — there's no title line to hide behind.
 
-The `--- PROMPT BEGINS ---` line in `prompts/floor.txt` is scaffolding for that
-stub only: `_invoke_llm()` splits on it to find the notes and echo them back.
-Once `prompts/floor.txt` is written for real, drop that marker and the `"floor"`
-stub branch in `_invoke_llm()` together — `prompts/class.txt` already shows the
-end state with no marker.
-
 Keep the two files genuinely separate rather than factoring out a shared base.
-They start identical, but the point of splitting them is that a class and a floor
-barre can ask different things of the notes without one prompt trying to serve
-both. What that difference actually is, is yours to decide when you write them.
+The point of splitting them is that a class and a floor barre can ask different
+things of the notes without one prompt trying to serve both — and they now do:
+class notes are named steps, floor barre is numbered Kniaseff exercises.
 
 ### The model call
 

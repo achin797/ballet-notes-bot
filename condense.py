@@ -1,16 +1,13 @@
 """Turn raw session notes into the markdown that becomes the Notion page body.
 
-Contract — this is what the rest of the pipeline depends on, and it does not
-change when the remaining prompt lands:
+Contract — this is what the rest of the pipeline depends on:
 
     in   raw_notes     verbatim Telegram messages, newline-joined, arrival order
          session_type  "class" | "floor"
     out  markdown string, used as the Notion page body as-is
 
-Class sessions call Gemini 3.6 Flash on Vertex AI (see _invoke_llm). Floor
-sessions are still a stub: prompts/floor.txt is a placeholder and floor notes
-are echoed back unchanged, so the pipeline stays exercisable end to end until
-that prompt is written.
+Both session types call Gemini 3.6 Flash on Vertex AI (see _invoke_llm); the
+only difference between them is which prompt file gets loaded.
 """
 
 import os
@@ -45,18 +42,8 @@ _client = genai.Client(
 )
 
 
-def _invoke_llm(prompt: str, session_type: str) -> str:
-    """Class sessions hit the model. Floor sessions still echo the notes back
-    (prompts/floor.txt is a placeholder) until that prompt is written.
-    """
-    if session_type == "floor":
-        raw_notes = prompt.split("--- PROMPT BEGINS ---", 1)[-1].strip()
-        return (
-            "## Floor barre — raw notes (not yet condensed)\n\n"
-            f"{raw_notes}\n\n"
-            "_Condensing prompt is still a placeholder; this page shows the notes as sent._"
-        )
-
+def _invoke_llm(prompt: str) -> str:
+    """Send the filled-in prompt to the model and return its markdown reply."""
     response = _client.models.generate_content(
         model=_MODEL,
         contents=prompt,
@@ -73,4 +60,4 @@ def _invoke_llm(prompt: str, session_type: str) -> str:
 def condense(raw_notes: str, session_type: str) -> str:
     template = _PROMPTS[session_type]
     prompt = template.replace("{RAW_NOTES}", raw_notes)
-    return _invoke_llm(prompt, session_type)
+    return _invoke_llm(prompt)

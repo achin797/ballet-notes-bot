@@ -1,16 +1,32 @@
-PLACEHOLDER — the real condensing prompt for a FLOOR BARRE session goes here.
+Condense one floor barre session into a fast pre-practice review. Tell me what I did, what I was working on, and what to carry into next session. Keep the cues that landed and the sensations worth re-accessing. Trim anything that doesn't change how I move or tell me where I'm at.
 
-Everything below the marker line is sent to the model verbatim, with {RAW_NOTES}
-replaced by the notes as they arrived on Telegram (newline-joined, in order).
+Floor barre is solo Kniaseff practice, worked by exercise number (Ex1, Ex2, Ex3...), not named ballet steps. The notes are my own felt-sense: what I focused on, what clicked, what broke down.
 
-The model's reply becomes the Notion page body as-is, so the prompt must specify
-markdown output with no preamble and no sign-off — the first characters of the
-reply are the first characters of the page.
+If the session is log-only — I only named which exercises I did, no corrections ("all fab 4", "Ex1 and 2") — write the Session line and stop. Don't invent corrections.
 
-Kept separate from prompts/class.txt on purpose, so a floor barre session can ask
-different things of the notes than a class does. If the two prompts end up saying
-the same thing, that is fine — nothing is lost by having split them.
+Grouping principle: file each note under the exercise it belongs to. Exceptions:
+* A note that's a broad principle across multiple exercises (stomach/corset, breath, rotation/heel forward, leg length, arch under the heel, hips pressed, back down — examples only, others will come up) goes in General/Cross-cutting, once, not repeated under each exercise.
+* If I can't tell where it belongs and it's a floor-barre universal, treat it as General. If I explicitly wrote it under an exercise, keep it there as that exercise's observation.
+* An exercise bullet has to name something specific to that exercise. If there's nothing specific, skip that exercise.
 
---- PROMPT BEGINS ---
+Output, markdown, in this order:
+1. **Session** — 1-2 lines. Which exercises, and how I ran them this time — whatever I varied, chased, or changed from usual. Include anything I did differently mid-session. Plain, no analysis.
+2. **North star** — the single cue that most unlocks the others, usually whatever recurs across every exercise. The spine of the session. One line for when my brain's too tired for the rest. Never a one-off fix for a single exercise. Keep my felt-sense phrasing if I described it as a feeling.
+3. **Top focus** — 2-3 cues to hold above all next session. Whatever recurred hardest, unlocked other things, or landed as a real discovery.
+4. **General/Cross-cutting** — principles spanning multiple exercises.
+5. **Exercises** — bullets grouped by exercise, in the order I wrote them. Skip exercises with no notes.
+6. **What clicked** — discoveries and felt-senses that landed this session, in my exact imagery. This is what I'm trying to re-access next time. Omit the section entirely if there are none.
+7. **Try next time** — untried ideas, experiments ("try...", "maybe placebo, check next time"), biases to unlearn, or things I said to keep an eye on. Omit entirely if there are none.
 
-{RAW_NOTES}
+Rules:
+* No preamble, no sign-off. Start at Session.
+* Bold only for section labels and exercise names.
+* Preserve my felt-sense descriptions and imagery verbatim (corset, arch under the heel, leakage, energy going down) — don't make them clinical. The sensation is the correction.
+* Say each item once. Nothing appears in two sections, including North star and Top focus.
+* If I wrote "like last time", "still", "been doing", mark it (recurring). Recurring outranks new for Top focus.
+* If I flagged something unresolved ("don't know what's wrong"), keep it as an open question under its exercise, marked (watch). Do not supply cause or fix.
+* If control broke down — tired, panicking, loose, rushed — keep it together with whatever re-found it. Where it fell apart and what rescued it is the note.
+* If I scaled or adjusted anything, report it as information, not failure. Don't correct it.
+* Things I already did that worked aren't experiments. Only untried ideas go in Try next time.
+
+Raw notes: {RAW_NOTES}
