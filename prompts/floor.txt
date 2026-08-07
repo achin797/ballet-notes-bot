@@ -14,7 +14,7 @@ Output, markdown, in this order:
 2. **North star** — the single cue that most unlocks the others, usually whatever recurs across every exercise. The spine of the session. One line for when my brain's too tired for the rest. Never a one-off fix for a single exercise. Keep my felt-sense phrasing if I described it as a feeling.
 3. **Top focus** — 2-3 cues to hold above all next session. Whatever recurred hardest, unlocked other things, or landed as a real discovery.
 4. **General/Cross-cutting** — principles spanning multiple exercises.
-5. **Exercises** — bullets grouped by exercise, in the order I wrote them. Skip exercises with no notes.
+5. **Exercises** — bullets grouped by exercise, in the order I wrote or said them. Skip exercises with no notes.
 6. **What clicked** — discoveries and felt-senses that landed this session, in my exact imagery. This is what I'm trying to re-access next time. Omit the section entirely if there are none.
 7. **Try next time** — untried ideas, experiments ("try...", "maybe placebo, check next time"), biases to unlearn, or things I said to keep an eye on. Omit entirely if there are none.
 
@@ -28,5 +28,6 @@ Rules:
 * If control broke down — tired, panicking, loose, rushed — keep it together with whatever re-found it. Where it fell apart and what rescued it is the note.
 * If I scaled or adjusted anything, report it as information, not failure. Don't correct it.
 * Things I already did that worked aren't experiments. Only untried ideas go in Try next time.
+* Never replace a term I used with a similar-sounding or more familiar word. Copy my terms exactly, including ones you don't recognise.
 
 Raw notes: {RAW_NOTES}

@@ -1,9 +1,9 @@
 # Ballet notes bot
 
-Send raw notes to a Telegram bot after a ballet class or a floor barre session.
-It condenses them and adds a page to the matching Notion database: title (month
-and day, e.g. "July 27"), today's date, the raw notes, and the condensed entry as
-the page body.
+Send raw notes to a Telegram bot after a ballet class or a floor barre session —
+typed, spoken as voice notes, or both in the same session. It condenses them and
+adds a page to the matching Notion database: title (month and day, e.g. "July 27"),
+today's date, the raw notes, and the condensed entry as the page body.
 
 ```
 raw notes -> Telegram bot -> Cloud Function (condense + write to Notion) -> Notion page
@@ -13,13 +13,14 @@ raw notes -> Telegram bot -> Cloud Function (condense + write to Notion) -> Noti
 
 ```
 You (Telegram)
-      │  /class or /floor, then raw notes as one or more messages, then /done
+      │  /class or /floor, then raw notes — typed and/or voice notes — then /done
       ▼
 Telegram Bot API
       │  webhook POST on every message
       ▼
 Cloud Function, gen2  (single function — main.py orchestrates everything below)
       │
+      ├─ transcribes voice notes on arrival ──────────▶ prompts/transcribe.txt + LLM
       ├─ buffers messages & dedupes retried webhooks ──▶ Firestore
       ├─ condenses the notes on /done ─────────────────▶ prompts/ + LLM
       └─ writes the finished entry ────────────────────▶ Notion API
@@ -32,6 +33,7 @@ Cloud Function, gen2  (single function — main.py orchestrates everything below
 | Piece           | Role                                                             | File                           |
 |-----------------|------------------------------------------------------------------|--------------------------------|
 | Telegram bot    | your only interface — send notes, get a confirmation + link back | `telegram.py`                  |
+| Transcriber     | turns a voice note into the text a typed message would have been  | `condense.transcribe()`        |
 | Cloud Function  | receives the webhook, routes commands, orchestrates the pipeline | `main.py`                      |
 | Firestore       | holds a session's buffered messages until `/done`; dedupes retries | `buffer.py`                  |
 | Condenser       | runs the per-session-type prompt over the raw notes               | `condense.py`, `prompts/*.txt` |
@@ -48,6 +50,9 @@ This is step 1 of a larger roadmap. Both session types are fully wired:
 `condense._invoke_llm()` calls Gemini 3.6 Flash on Vertex AI for either one. The
 templates load, `{RAW_NOTES}` is substituted, and the model's reply is what lands
 in Notion.
+
+Voice notes are wired too — see "Voice notes" below. They're an addition, not a
+replacement: you can type, speak, or mix both inside one session.
 
 Also deliberately left alone: the `Exercises completed` multi-select on the Floor
 barre database. Deciding which exercises a session covered is condensing work.
@@ -67,6 +72,37 @@ The point of splitting them is that a class and a floor barre can ask different
 things of the notes without one prompt trying to serve both — and they now do:
 class notes are named steps, floor barre is numbered Kniaseff exercises.
 
+### Voice notes
+
+Send a Telegram voice note instead of typing, or alongside typing. Each one is
+transcribed **on arrival**, not at `/done`, and the transcript is buffered exactly
+as a typed message would be. Nothing downstream knows the difference — `condense()`,
+`buffer.py` and `notion.py` all just see strings.
+
+On arrival rather than at `/done` for a concrete reason: `buffer.py` keeps a session's
+chunks in a single Firestore document, and Firestore caps a document at 1 MiB. Audio
+doesn't fit. Transcribing first keeps the buffer holding strings, so mixed
+typed-and-spoken sessions work for free, in arrival order.
+
+Transcription is a second Gemini call using `prompts/transcribe.txt`, with
+`prompts/vocab.txt` substituted into it at `{VOCAB}` — a ballet vocabulary list ending
+in a misheard-terms map written `correct term → what it gets misheard as`. That map is
+doing most of the work: without it, `grande extensions` came back as `groin extensions`.
+Proper nouns need to be listed explicitly; domain context alone doesn't fix them
+(`Paquita` transcribed as "piquita" until it was added).
+
+Two things the transcription prompt must keep doing, both load-bearing:
+
+- **Preserve filler, hedging and self-correction.** The condensing prompts read them
+  as signal — unresolved talk becomes `(watch)`, "like last time" becomes `(recurring)`,
+  "maybe placebo" becomes Try next time. Tidying the speech disarms those rules.
+- **Write exercise numbers as words** (`exercise one`, never `exercise 1`). Runs drifted
+  between the two formats, and `prompts/floor.txt` groups bullets by exercise, so an
+  unstable label means unstable grouping.
+
+Telegram caps a bot's file download at 20MB, which is under the inline request limit,
+so audio is always sent inline — no bucket, no `getFile` size handling.
+
 ### The model call
 
 `condense._invoke_llm()` calls **Gemini 3.6 Flash** on Vertex AI (`gemini-3.6-flash`,
@@ -82,10 +118,16 @@ via the `google-genai` SDK, `vertexai=True`). Requires:
 
 No secret is needed — Vertex authenticates as the function's service account.
 
-The client sets a 100s request timeout (`condense.py`), 20s under the function's
-120s limit, so a slow model call surfaces as a caught exception with a Telegram
+The client sets a 500s request timeout (`condense.py`), 40s under the function's
+540s limit, so a slow model call surfaces as a caught exception with a Telegram
 error reply instead of a hard Cloud Functions kill that leaves the user hanging
 with no response at all.
+
+These were 100s and 120s originally, which turned out to be too tight: a long
+`/done` returned `504 DEADLINE_EXCEEDED` from Vertex, and transcribing a long voice
+note is slower still. Telegram retries a webhook it doesn't get a fast 200 from, but
+that's already handled — `update_id` is claimed transactionally before any model
+call, so the retry is dropped and only the original invocation replies.
 
 ## Prerequisites
 
@@ -270,7 +312,9 @@ The second command should show your URL with `pending_update_count: 0` and no
 
 1. Send `/class` or `/floor` to tell the bot which kind of session it was.
 2. Send your raw notes, split across as many messages as you like (Telegram caps
-   a single message at 4096 characters).
+   a single message at 4096 characters). Voice notes work too, and can be mixed
+   freely with typed messages — each is transcribed as it arrives and the bot
+   replies `🎙 Transcribed (N message(s) buffered)`.
 3. Send `/done`.
 
 The bot replies `✅ Added to Notion` with a link once the page is created.
@@ -361,6 +405,13 @@ identical to the bot being down.
       and a new page appears in **Ballet class notes** with today's date, a
       month-and-day title, and the raw notes preserved.
 - [ ] Same again with `/floor` → the page lands in **Floor barre notes** instead.
+- [ ] Voice: `/floor` → send a voice note → bot replies `🎙 Transcribed` → `/done` →
+      the Notion page is condensed, ballet terms are spelled correctly, and `Raw notes`
+      holds the transcript with its filler intact.
+- [ ] Mixed: `/floor` → type a message → send a voice note → type again → `/done` →
+      all three appear in the entry, in the order sent.
+- [ ] Voice note sent before `/class` or `/floor` → bot asks which session, and does
+      *not* burn a transcription call.
 - [ ] Notes sent before `/class` or `/floor` → bot asks which session; nothing buffered.
 - [ ] `/quit` mid-session → notes discarded, no page created.
 - [ ] Security: POST to the function URL without the `X-Telegram-Bot-Api-Secret-Token`
@@ -393,6 +444,15 @@ identical to the bot being down.
 - **Prompts are files, not code**: one per session type, loaded at cold start.
   Splitting them up front is cheap and avoids one prompt trying to serve both
   session types later; if they end up identical, nothing is lost.
+- **Voice is transcribed, not fed to the condenser as audio.** Handing the audio
+  straight to `floor.txt` would save a call, but it leaves the Notion `Raw notes`
+  property empty, and it forces audio through a buffer that can only hold strings.
+  Splitting it also keeps the speech engine swappable: pass 1 is just "audio in, text
+  out", so moving to Cloud Speech-to-Text with phrase boost later touches nothing else.
+- **No separate voice prompt.** Tested against a real voice note: the existing
+  `floor.txt` condensed a transcript correctly with no changes, because the narration
+  is sequential and self-structured ("then for exercise two"). Two rules were added for
+  defects the test exposed, but a parallel `floor-voice.txt` earned nothing.
 - **Timezone data**: computing the Date field needs `zoneinfo` to resolve
   `LOCAL_TZ`, but slim Python runtimes often ship without the IANA timezone
   database. `tzdata` is in `requirements.txt` specifically so this resolves

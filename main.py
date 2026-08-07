@@ -29,6 +29,26 @@ _NO_SESSION_TEXT = (
 _OK = ("", 200)
 
 
+def _audio_part(message):
+    """Pull the audio out of a message, whichever field Telegram put it in.
+
+    Three fields can carry it, and they are not interchangeable:
+      voice     — recorded in Telegram, ogg/opus
+      audio     — an audio *file*, which is what a voice note forwarded from
+                  WhatsApp arrives as (m4a)
+      document  — anything sent as a file; only treated as audio if it says so
+
+    Returns None for everything else, including video_note.
+    """
+    part = message.get("voice") or message.get("audio")
+    if part is not None:
+        return part
+    doc = message.get("document") or {}
+    if (doc.get("mime_type") or "").startswith("audio/"):
+        return doc
+    return None
+
+
 @functions_framework.http
 def main(request):
     # Verify the shared secret first: the function is deployed unauthenticated,
@@ -43,10 +63,14 @@ def main(request):
     chat = message.get("chat") or {}
     chat_id = chat.get("id")
     text = message.get("text")
+    voice = _audio_part(message)
     update_id = update.get("update_id")
 
-    if chat_id is None or text is None:
-        # Non-text update (photo, sticker, edited_message, etc.) — nothing to do.
+    if chat_id is None or (text is None and voice is None):
+        # Neither text nor audio (photo, sticker, edited_message, etc.). Logged
+        # rather than dropped quietly: an unhandled message type is otherwise
+        # indistinguishable from the bot being down.
+        logger.info("Ignoring update with no text or audio: fields=%s", sorted(message))
         return _OK
 
     if not telegram.is_allowed_chat(chat_id):
@@ -55,6 +79,35 @@ def main(request):
 
     if update_id is not None and buffer.is_duplicate_update(update_id):
         logger.info("Skipping already-processed update_id=%s", update_id)
+        return _OK
+
+    if voice is not None:
+        # Checked before transcribing rather than relying on append_chunk's refusal,
+        # so a note sent without /class or /floor doesn't cost a model call.
+        if not buffer.get_session_type(chat_id):
+            telegram.send_message(chat_id, _NO_SESSION_TEXT)
+            return _OK
+        try:
+            audio = telegram.download_file(voice["file_id"])
+            transcript = condense.transcribe(
+                audio, voice.get("mime_type") or "audio/ogg"
+            )
+        except Exception:
+            logger.exception("Failed to transcribe voice note for chat_id=%s", chat_id)
+            telegram.send_message(
+                chat_id,
+                "⚠️ Couldn't transcribe that voice note. It wasn't saved — "
+                "please send it again, or type the notes instead.",
+            )
+            return _OK
+        count = buffer.append_chunk(chat_id, transcript)
+        if count is None:
+            # Session ended (a /done or /quit landed) while we were transcribing.
+            telegram.send_message(chat_id, _NO_SESSION_TEXT)
+            return _OK
+        telegram.send_message(
+            chat_id, f"🎙 Transcribed ({count} message(s) buffered) — send /done when finished."
+        )
         return _OK
 
     stripped = text.strip()

@@ -31,7 +31,7 @@ gcloud functions deploy "$FUNCTION_NAME" \
   --entry-point=main \
   --trigger-http \
   --allow-unauthenticated \
-  --timeout=120s \
+  --timeout=540s \
   --memory=512Mi \
   --set-env-vars="ALLOWED_CHAT_ID=${ALLOWED_CHAT_ID},LOCAL_TZ=${LOCAL_TZ},NOTION_VERSION=${NOTION_VERSION},NOTION_CLASS_DATA_SOURCE_ID=${NOTION_CLASS_DATA_SOURCE_ID},NOTION_FLOOR_DATA_SOURCE_ID=${NOTION_FLOOR_DATA_SOURCE_ID},VERTEX_PROJECT=${VERTEX_PROJECT},VERTEX_LOCATION=${VERTEX_LOCATION}" \
   --set-secrets="TELEGRAM_BOT_TOKEN=telegram-bot-token:latest,TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret:latest,NOTION_TOKEN=notion-token:latest"

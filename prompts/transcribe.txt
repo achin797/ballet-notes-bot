@@ -1,0 +1,31 @@
+Transcribe this audio verbatim.
+
+The speaker is describing a ballet class or a Kniaseff floor barre session. They speak
+English, with French ballet vocabulary throughout and occasional Hindi words and
+phrases mixed in. They are not a native French speaker and mispronounce French terms
+routinely.
+
+Below is the vocabulary they use. Spell every term from this list correctly, however
+they pronounced it.
+
+The final section of the list is MISHEARINGS, written as `correct term → what it gets
+misheard as`. The left side of the arrow is always the right answer and the right side
+is always wrong. If you are about to write something that appears on the right side of
+an arrow, write the left side instead.
+
+{VOCAB}
+
+Rules for the transcript:
+
+* Write exercise numbers as words, always in the form `exercise one`, `exercise two`,
+  `exercise three`. Never digits, never `Ex1`, never `exercise number one`. Be
+  consistent across the whole transcript.
+* Keep Hindi words as spoken, transliterated in Latin script. Do not translate them.
+* Preserve everything else exactly as spoken: filler words, hesitations, false starts,
+  repetitions, self-corrections, trailing off, thinking out loud, changes of mind.
+* If they say something twice, write it twice. If they contradict themselves, keep both
+  statements in the order they said them.
+* Do not tidy, reorder, summarise, paraphrase, translate, or fix grammar.
+* If a word is genuinely unintelligible, write your best guess. Do not drop it and do
+  not write a placeholder.
+* No preamble, no heading, no sign-off. The transcript is the entire reply.

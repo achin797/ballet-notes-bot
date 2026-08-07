@@ -36,6 +36,16 @@ def set_session_type(chat_id, session_type: str) -> None:
     )
 
 
+def get_session_type(chat_id):
+    """Read the session type without touching the buffer. Returns None if unset.
+
+    Exists so a voice note can be refused before it costs a transcription call —
+    append_chunk() would refuse it too, but only after the audio had been processed.
+    """
+    snapshot = _buffer_ref(chat_id).get()
+    return snapshot.to_dict().get("session_type") if snapshot.exists else None
+
+
 @firestore.transactional
 def _append(transaction, ref, text: str):
     snapshot = ref.get(transaction=transaction)
