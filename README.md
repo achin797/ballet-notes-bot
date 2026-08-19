@@ -390,6 +390,12 @@ or against different Notion databases, the values to change are all at the top:
 
 - `PROJECT_ID`, `REGION`, `FUNCTION_NAME`
 - `NOTION_CLASS_DATA_SOURCE_ID`, `NOTION_FLOOR_DATA_SOURCE_ID` — from 3a above
+- `DRIVE_CLASS_DOC_ID`, `DRIVE_FLOOR_DOC_ID` — the two Google Doc file IDs from
+  the "NotebookLM sync setup" section above
+- `DRIVE_IMPERSONATE_SA` — derived from `PROJECT_ID` at deploy time, so it needs
+  no editing. It is the function's own runtime service account, which the
+  function impersonates to obtain a Drive-scoped token (see "Notes on the
+  design")
 - `LOCAL_TZ` — defaults to `Asia/Kolkata`; used to compute the Date field
   correctly, since the function itself runs in UTC
 - `NOTION_VERSION` — leave at `2026-03-11` or later. The page-body `markdown`
@@ -612,3 +618,37 @@ Notion→Drive→NotebookLM pipeline (do the "NotebookLM sync setup" steps first
   `LOCAL_TZ`, but slim Python runtimes often ship without the IANA timezone
   database. `tzdata` is in `requirements.txt` specifically so this resolves
   instead of raising `ZoneInfoNotFoundError` at runtime.
+- **Drive auth impersonates the function's own service account.** The obvious
+  thing — `google.auth.default(scopes=["...auth/drive"])` — does not work on
+  Cloud Functions gen2. Gen2 runs on Cloud Run, whose metadata server issues
+  tokens scoped to `cloud-platform`, and the `scopes=` argument cannot widen
+  that: the metadata server only narrows to scopes the instance already has.
+  `cloud-platform` covers Google *Cloud* APIs; Drive is a *Workspace* API and
+  is not among them, so the call comes back `403 Request had insufficient
+  authentication scopes` on a file that is visibly shared with the account —
+  a scope problem wearing a permissions problem's clothes, which no amount of
+  IAM-role or Drive-share fiddling fixes. `drive.py` instead uses the metadata
+  credentials (which *can* reach `iamcredentials.googleapis.com`, since that
+  is under `cloud-platform`) to mint a second token for the same service
+  account with the Drive scope requested explicitly. Same identity, wider
+  scope, and no service-account key anywhere. This is what the
+  `roles/iam.serviceAccountTokenCreator` self-binding in the setup pays for.
+- **The sync hash deliberately excludes the "Last synced" line.** Each Doc's
+  header carries a timestamp, which changes on every run whether or not Notion
+  did. `drive_sync.py` therefore hashes `_render_sessions()` — the session
+  bodies alone — and not `_render()`, the full document. Hashing the full
+  document would make every run look changed, the gate would never fire, and
+  NotebookLM would re-index both Docs on every `/sync` for no reason.
+- **Full rebuild every sync, not an incremental append.** There is no per-page
+  state beyond one content hash per database. Each run re-reads a whole data
+  source and re-renders its Doc from scratch, so edits, deletions and reorders
+  made by hand in Notion all show up correctly and nothing can drift. The hash
+  exists only to skip a pointless Drive write, never to decide what to send.
+  The Drive write also happens *before* the hash is stored: reversed, a failed
+  upload would still mark the run done and the Doc would drift forever.
+- **`/sync` is manual on purpose.** Syncing inside `/done` would add the whole
+  Notion-read and Drive-write round trip to every logged session, coupling the
+  capture path — the one thing that must never fail — to Drive availability.
+  A scheduled Cloud Scheduler job is the obvious upgrade if remembering `/sync`
+  becomes a chore; `drive_sync.sync_all()` has no Telegram dependency, so it
+  only needs a second entry point and a cron.
