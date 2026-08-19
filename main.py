@@ -4,6 +4,7 @@ import functions_framework
 
 import buffer
 import condense
+import drive_sync
 import notion
 import telegram
 
@@ -17,7 +18,8 @@ _HELP_TEXT = (
     "3. /done — condense them and add the entry to Notion\n\n"
     "Other commands:\n"
     "/start, /help — show this message\n"
-    "/quit — discard the current session and start over"
+    "/quit — discard the current session and start over\n"
+    "/sync — push both Notion databases to their Google Docs (NotebookLM)"
 )
 
 _NO_SESSION_TEXT = (
@@ -131,6 +133,28 @@ def main(request):
             telegram.send_message(chat_id, "Discarded. Start again with /class or /floor.")
         else:
             telegram.send_message(chat_id, "Nothing buffered — already a clean slate.")
+        return _OK
+
+    if stripped == "/sync":
+        # Acknowledged before the work starts: a full rebuild reads every page in
+        # both databases, which takes long enough that a silent bot looks broken.
+        telegram.send_message(chat_id, "Syncing Notion → Google Docs…")
+        try:
+            results = drive_sync.sync_all()
+        except Exception:
+            logger.exception("Drive sync failed for chat_id=%s", chat_id)
+            telegram.send_message(
+                chat_id,
+                "⚠️ Sync failed. The Docs were not changed, so NotebookLM still "
+                "has the last good version. Try again in a moment.",
+            )
+            return _OK
+        lines = []
+        for result in results:
+            label = "Class" if result["type"] == "class" else "Floor barre"
+            state = "updated" if result["changed"] else "already up to date"
+            lines.append(f"{label}: {state} ({result['sessions']} sessions)")
+        telegram.send_message(chat_id, "✅ Sync done\n" + "\n".join(lines))
         return _OK
 
     if stripped == "/done":

@@ -43,6 +43,67 @@ Everything runs on request — there's no server to keep up. Cloud Functions and
 Firestore only cost anything while actually processing a message, which for this
 use case (a few sessions a week) is effectively free.
 
+### Notion → Drive → NotebookLM (second pipeline)
+
+```
+You (Telegram)
+      │  /sync
+      ▼
+Cloud Function, gen2  (same function, same code — main.py routes to drive_sync.py)
+      │
+      ├─ query every row, oldest first, both DBs ──▶ Notion API (data source query)
+      ├─ fetch each page's condensed body ─────────▶ Notion API (GET .../markdown)
+      ├─ render one markdown document per DB
+      ├─ hash it, skip the Drive write if unchanged since last sync
+      └─ overwrite the whole Doc's content ────────▶ Google Drive API (multipart update)
+                                                            │
+                                                            ▼
+                                     2 Google Docs, same file IDs every run
+                                                            │
+                                                            ▼ (automatic — no click)
+                                                     NotebookLM source
+```
+
+| Piece              | Role                                                              | File           |
+|---------------------|--------------------------------------------------------------------|-----------------|
+| `/sync` command      | triggers a full rebuild of both Docs, on demand                   | `main.py`       |
+| Notion API (read)   | data source query + per-page markdown fetch                       | `notion_read.py` |
+| Google Drive API    | overwrites each target Doc's full content when its content changed | `drive.py`      |
+| Firestore           | stores the SHA-256 of the last Doc content written, per session type | `buffer.py` (`sync_class`, `sync_floor`) |
+| NotebookLM          | auto-syncs each Doc once added as a source — no manual re-add ever | (Google's UI, one-time) |
+
+**Why a full overwrite every run, not an incremental append**: the sync has no
+per-page state beyond one content hash per Doc. Every run re-reads the entire
+Notion database and re-renders the whole Doc from scratch, so edits, deletions,
+and reorders in Notion all show up correctly — there is nothing that can drift
+out of sync. The hash exists only so an unchanged run skips the Drive write (so
+NotebookLM doesn't re-index the Doc for no reason), not to decide what content
+to send.
+
+**Why NotebookLM needs no maintenance after the one-time setup**: Google's
+automatic Drive sync for NotebookLM refreshes native Google Docs/Sheets/Slides
+sources inside a notebook whenever the underlying Drive file changes, with no
+sync button and no setting to turn on. That's the whole reason the target is a
+**Google Doc** and not a plain `.md`/`.txt`/PDF file in Drive — only native
+Workspace files get this treatment.
+
+**Why the Drive auth is impersonation, not plain ADC**: Cloud Functions gen2
+runs on Cloud Run, whose metadata server issues tokens scoped to
+`cloud-platform` only. That scope covers Google Cloud APIs; Drive is a Workspace
+API and isn't among them, so a plain metadata token gets a 403 "insufficient
+authentication scopes" from Drive no matter how the file is shared. `drive.py`
+works around this by impersonating the function's own service account through
+the IAM Credentials API, asking for the Drive scope explicitly on that call.
+Same identity, wider scope, no key file. Requires
+`roles/iam.serviceAccountTokenCreator` granted to the service account on
+itself — see "NotebookLM sync setup" below.
+
+**Why the content hash excludes the "Last synced" line**: `drive_sync.py`
+hashes only the rendered sessions, not the full document. The header carries a
+timestamp that changes on every run regardless of whether the underlying
+Notion data did — hashing it in would make every run look changed and defeat
+the point of the gate.
+
 ## What's done and what isn't
 
 This is step 1 of a larger roadmap. Both session types are fully wired:
@@ -240,6 +301,64 @@ gcloud firestore fields ttls update expireAt \
   --collection-group=buffers --enable-ttl
 ```
 
+## NotebookLM sync setup (one-time, do before deploying the sync)
+
+The Notion→Drive→NotebookLM pipeline needs five one-time steps outside this
+repo, done in order:
+
+1. **Enable the Drive and IAM Credentials APIs** on the same GCP project
+   everything else runs in:
+   ```bash
+   gcloud services enable drive.googleapis.com iamcredentials.googleapis.com \
+     --project=project-69fd2b15-f478-43ca-b5d
+   ```
+2. **Create two Google Docs yourself** — Drive → New → Google Doc, leave them
+   empty, name them whatever you want to see in NotebookLM (e.g.
+   "Ballet — Class Notes" and "Ballet — Floor Barre Notes"). They must be owned
+   by your real Google account, not the service account: a service account on
+   a consumer Gmail account has no usable Drive storage, and a NotebookLM
+   source has to be a file you can see in your own Drive picker. Copy each
+   file ID from its URL (`docs.google.com/document/d/<FILE_ID>/edit`) into
+   `DRIVE_CLASS_DOC_ID` and `DRIVE_FLOOR_DOC_ID` in `deploy.sh`.
+3. **Share both Docs with the runtime service account as Editor**:
+   ```bash
+   PROJECT_NUMBER=$(gcloud projects describe project-69fd2b15-f478-43ca-b5d --format='value(projectNumber)')
+   echo "${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+   ```
+   For each Doc: Share → paste that address → Editor → uncheck "Notify
+   people". This is where the sync's write access actually comes from — it's
+   a Drive-level ACL, not a GCP IAM role, so nothing in `gcloud` grants it.
+   Skip it and the Drive write 404s on a file that plainly exists.
+4. **Grant the runtime service account permission to impersonate itself**,
+   which is how it gets a Drive-scoped token (see "Why the Drive auth is
+   impersonation, not plain ADC" above):
+   ```bash
+   PROJECT_NUMBER=$(gcloud projects describe project-69fd2b15-f478-43ca-b5d --format='value(projectNumber)')
+   SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+   gcloud iam service-accounts add-iam-policy-binding "$SA" \
+     --project=project-69fd2b15-f478-43ca-b5d \
+     --member="serviceAccount:${SA}" \
+     --role=roles/iam.serviceAccountTokenCreator
+   ```
+   IAM policy changes can take a minute or two to propagate — a `403
+   PERMISSION_DENIED` on `generateAccessToken` right after running this is
+   expected transiently; retry after a short wait before assuming something
+   is actually wrong.
+5. **Turn on "Read content" on the Notion integration** — it has so far only
+   ever written pages. notion.so → Settings → Connections → your integration
+   → Capabilities → check **Read content**. Without this, `GET
+   /pages/{id}/markdown` 403s. Also confirm the integration is connected to
+   **both** databases (see "3a. The two databases" above) — a missing
+   connection here 404s instead.
+
+**Add the Docs to NotebookLM only after the first successful `/sync`** — an
+empty Doc added as a source indexes as empty, and you'd otherwise be relying
+on auto-sync to pick up the very first write. Once you have added them:
+notebook → Add source → Google Drive → pick each Doc, once. After that,
+NotebookLM's automatic Drive sync keeps both current with no further action
+on either side.
+
 ## Confirm the Notion databases (before deploying)
 
 ```bash
@@ -322,6 +441,24 @@ The bot replies `✅ Added to Notion` with a link once the page is created.
 Other commands: `/start` or `/help` for usage instructions, `/quit` to discard the
 current session and start over. Notes sent before `/class` or `/floor` are
 refused rather than buffered — the bot won't guess which database they belong in.
+
+### NotebookLM
+
+Send `/sync` any time to rebuild both Google Docs from the current state of
+both Notion databases — right after a class, or whenever you want NotebookLM
+caught up. The bot replies `Syncing Notion → Google Docs…`, then a per-Doc
+summary:
+
+```
+✅ Sync done
+Class: updated (14 sessions)
+Floor barre: already up to date (9 sessions)
+```
+
+"Already up to date" means the content hash matched the last sync and the
+Drive write was skipped — normal, not an error. Add both Docs to a NotebookLM
+notebook once (see "NotebookLM sync setup" above); after that every `/sync`
+that changes a Doc propagates on its own, no re-add needed.
 
 ## Local testing
 
@@ -417,6 +554,24 @@ identical to the bot being down.
 - [ ] Security: POST to the function URL without the `X-Telegram-Bot-Api-Secret-Token`
       header → silently ignored (200, no page). Message the bot from a different
       Telegram account → "Not authorized", no page.
+
+Notion→Drive→NotebookLM pipeline (do the "NotebookLM sync setup" steps first):
+
+- [ ] `/sync` → replies `Syncing Notion → Google Docs…`, then `✅ Sync done` with a
+      line per database and session counts matching the row counts in Notion.
+- [ ] Both Google Docs contain real formatting — H1 title, `##` session headings,
+      horizontal rules — not literal `#` characters. Literal `#`s mean the markdown
+      conversion failed; see the `_MEDIA_MIME` fallback ladder in `drive.py`.
+- [ ] A floor barre session with `Exercises completed` tagged by hand shows a
+      `**Exercises completed:** ...` line under its heading; untagged sessions don't.
+- [ ] `/sync` again immediately → both report "already up to date" — the hash gate
+      working. If it says "updated" twice in a row with no Notion change, something
+      run-varying leaked into the hashed content (check `drive_sync.py`'s
+      `_render_sessions` vs `_render`).
+- [ ] Firestore → `buffers` collection → `sync_class` and `sync_floor` documents
+      exist, each with `contentHash` and `syncedAt`, and no `expireAt`.
+- [ ] After adding both Docs to a NotebookLM notebook, ask it a question spanning
+      both session types and confirm it cites both sources.
 
 ## Notes on the design
 

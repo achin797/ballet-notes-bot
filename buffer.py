@@ -5,9 +5,10 @@ from google.cloud import firestore
 
 COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "buffers")
 
-# One collection holds two document kinds, distinguished by id prefix:
+# One collection holds three document kinds, distinguished by id prefix:
 #   "buf_<chat_id>"    - the in-progress session: raw-note chunks + session type
 #   "upd_<update_id>"  - a marker for an already-processed Telegram update
+#   "sync_<type>"      - hash of the last Google Doc written for class | floor
 # A single collection keeps the Firestore TTL policy to one field on one path.
 BUFFER_TTL_SECONDS = 6 * 60 * 60  # abandoned sessions self-clean after 6h
 DEDUP_TTL_SECONDS = 60 * 60  # dedup markers only need to outlive Telegram's retries
@@ -100,3 +101,23 @@ def is_duplicate_update(update_id) -> bool:
     """
     ref = _db.collection(COLLECTION).document(f"upd_{update_id}")
     return _claim(_db.transaction(), ref)
+
+
+def _sync_ref(session_type: str):
+    return _db.collection(COLLECTION).document(f"sync_{session_type}")
+
+
+def get_sync_hash(session_type: str):
+    """Content hash from the last successful Drive sync of this type, or None."""
+    snapshot = _sync_ref(session_type).get()
+    return snapshot.to_dict().get("contentHash") if snapshot.exists else None
+
+
+def put_sync_hash(session_type: str, content_hash: str) -> None:
+    # No expireAt on these documents, unlike buf_/upd_: the collection's TTL
+    # policy only reaps documents that carry that field, so omitting it makes
+    # these persist indefinitely — which is the point, they are the sync's only
+    # memory between runs.
+    _sync_ref(session_type).set(
+        {"contentHash": content_hash, "syncedAt": datetime.now(timezone.utc)}
+    )

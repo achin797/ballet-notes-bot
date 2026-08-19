@@ -22,6 +22,18 @@ NOTION_FLOOR_DATA_SOURCE_ID="6c63ef88-7ec8-822b-b773-8786b5e160d0"
 VERTEX_PROJECT="$PROJECT_ID"
 VERTEX_LOCATION="global"
 
+# Google Docs that back the NotebookLM notebook. Created by hand in Drive and
+# shared with the runtime service account as Editor — see README, "NotebookLM
+# sync setup". File IDs come from docs.google.com/document/d/<FILE_ID>/edit.
+DRIVE_CLASS_DOC_ID="1q8-TJqbIzRHhji9wmMwzcXP5SE8FmVmbqMsgEp6pbGY"
+DRIVE_FLOOR_DOC_ID="1Iu9ah3IJ1mUDIjmASLOgCoeOiGyOB3zaJttQh5tQtP0"
+
+# The function's own runtime service account, impersonated to obtain a
+# Drive-scoped token (Cloud Run's metadata token is cloud-platform only, which
+# Drive rejects). Requires roles/iam.serviceAccountTokenCreator on itself.
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+DRIVE_IMPERSONATE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
 gcloud functions deploy "$FUNCTION_NAME" \
   --project="$PROJECT_ID" \
   --region="$REGION" \
@@ -33,7 +45,7 @@ gcloud functions deploy "$FUNCTION_NAME" \
   --allow-unauthenticated \
   --timeout=540s \
   --memory=512Mi \
-  --set-env-vars="ALLOWED_CHAT_ID=${ALLOWED_CHAT_ID},LOCAL_TZ=${LOCAL_TZ},NOTION_VERSION=${NOTION_VERSION},NOTION_CLASS_DATA_SOURCE_ID=${NOTION_CLASS_DATA_SOURCE_ID},NOTION_FLOOR_DATA_SOURCE_ID=${NOTION_FLOOR_DATA_SOURCE_ID},VERTEX_PROJECT=${VERTEX_PROJECT},VERTEX_LOCATION=${VERTEX_LOCATION}" \
+  --set-env-vars="ALLOWED_CHAT_ID=${ALLOWED_CHAT_ID},LOCAL_TZ=${LOCAL_TZ},NOTION_VERSION=${NOTION_VERSION},NOTION_CLASS_DATA_SOURCE_ID=${NOTION_CLASS_DATA_SOURCE_ID},NOTION_FLOOR_DATA_SOURCE_ID=${NOTION_FLOOR_DATA_SOURCE_ID},VERTEX_PROJECT=${VERTEX_PROJECT},VERTEX_LOCATION=${VERTEX_LOCATION},DRIVE_CLASS_DOC_ID=${DRIVE_CLASS_DOC_ID},DRIVE_FLOOR_DOC_ID=${DRIVE_FLOOR_DOC_ID},DRIVE_IMPERSONATE_SA=${DRIVE_IMPERSONATE_SA}" \
   --set-secrets="TELEGRAM_BOT_TOKEN=telegram-bot-token:latest,TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret:latest,NOTION_TOKEN=notion-token:latest"
 
 echo

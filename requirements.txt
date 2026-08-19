@@ -1,4 +1,5 @@
 functions-framework
+google-auth
 google-cloud-firestore
 google-genai
 requests
