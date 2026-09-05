@@ -6,7 +6,7 @@ Contract — this is what the rest of the pipeline depends on:
          session_type  "class" | "floor"
     out  markdown string, used as the Notion page body as-is
 
-Both session types call Gemini 3.6 Flash on Vertex AI (see _invoke_llm); the
+Both session types call Gemini 3.8 Flash on Vertex AI (see _invoke_llm); the
 only difference between them is which prompt file gets loaded.
 
 Voice notes go through transcribe() first, which turns audio into the same kind of
@@ -36,7 +36,7 @@ _TRANSCRIBE_PROMPT = (_PROMPT_DIR / "transcribe.txt").read_text().replace(
     "{VOCAB}", (_PROMPT_DIR / "vocab.txt").read_text()
 )
 
-_MODEL = "gemini-3.6-flash"
+_MODEL = "gemini-3.8-flash"
 
 # "global" location sidesteps Vertex's per-region model availability — the
 # thing that would otherwise force checking whether asia-south1 carries this
