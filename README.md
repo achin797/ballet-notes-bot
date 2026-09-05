@@ -108,7 +108,7 @@ the point of the gate.
 
 This is step 1 of a larger roadmap. Both session types are fully wired:
 `prompts/class.txt` and `prompts/floor.txt` are both real prompts, and
-`condense._invoke_llm()` calls Gemini 3.6 Flash on Vertex AI for either one. The
+`condense._invoke_llm()` calls Gemini 3.8 Flash on Vertex AI for either one. The
 templates load, `{RAW_NOTES}` is substituted, and the model's reply is what lands
 in Notion.
 
@@ -166,7 +166,7 @@ so audio is always sent inline — no bucket, no `getFile` size handling.
 
 ### The model call
 
-`condense._invoke_llm()` calls **Gemini 3.6 Flash** on Vertex AI (`gemini-3.6-flash`,
+`condense._invoke_llm()` calls **Gemini 3.8 Flash** on Vertex AI (`gemini-3.8-flash`,
 via the `google-genai` SDK, `vertexai=True`). Requires:
 
 - `aiplatform.googleapis.com` enabled (see 5a) — no separate Model Garden access
