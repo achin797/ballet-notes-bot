@@ -22,23 +22,25 @@ LOCAL_TZ = os.environ.get("LOCAL_TZ", "Asia/Kolkata")
 
 # Per-type presentation. LABEL prefixes every session heading so a NotebookLM
 # answer citing one source still says which kind of session it came from, and
-# the "companion" sentence in _render names the other Doc so questions spanning
-# both sources have something to hang on to.
+# the "companion" sentence in _render names the other Docs so questions spanning
+# several sources have something to hang on to.
 _DOC_TITLES = {
     "class": "Ballet — Class Notes",
     "floor": "Ballet — Floor Barre Notes",
+    "explore": "Ballet — Movement Exploration Notes",
 }
-_LABELS = {"class": "Class", "floor": "Floor barre"}
+LABELS = {"class": "Class", "floor": "Floor barre", "explore": "Exploration"}
 _BLURBS = {
     "class": "studio class sessions",
     "floor": "Kniaseff floor barre sessions",
+    "explore": "movement exploration (improvisation) sessions",
 }
 
 logger = logging.getLogger()
 
 
 def _format_session(session_type: str, entry: dict, body: str) -> str:
-    label = _LABELS[session_type]
+    label = LABELS[session_type]
     date = entry["date"]
     if date:
         heading = f"## {label} — {date}"
@@ -72,7 +74,11 @@ def _render(session_type: str, entries: list, sessions_text: str) -> str:
     now = datetime.now(ZoneInfo(LOCAL_TZ))
     dates = [e["date"] for e in entries if e["date"]]
     date_range = f"{min(dates)} → {max(dates)}" if dates else "no dates recorded"
-    other = "floor" if session_type == "class" else "class"
+    companions = "; ".join(
+        f'"{_DOC_TITLES[other]}" holds {_BLURBS[other]}'
+        for other in buffer.SESSION_TYPES
+        if other != session_type
+    )
 
     # "Last synced" is deliberately excluded from the hashed content (see
     # _render_sessions) — it changes every run regardless of whether the Notion
@@ -83,9 +89,8 @@ def _render(session_type: str, entries: list, sessions_text: str) -> str:
         "the next sync.\n"
         f"Last synced: {now.strftime('%Y-%m-%d %H:%M')} {LOCAL_TZ.split('/')[-1]} · "
         f"{len(entries)} sessions · {date_range}\n\n"
-        f"This document holds {_BLURBS[session_type]} only. Its companion source "
-        f'in the same notebook, "{_DOC_TITLES[other]}", holds '
-        f"{_BLURBS[other]}.\n\n"
+        f"This document holds {_BLURBS[session_type]} only. Companion sources "
+        f"in the same notebook: {companions}.\n\n"
         f'Each "##" heading below is one session, oldest first. Body is the '
         "condensed post-session journal entry.\n"
     )
@@ -126,5 +131,5 @@ def sync_one(session_type: str) -> dict:
 
 
 def sync_all() -> list:
-    """Rebuild both Docs. Returns one result dict per session type."""
-    return [sync_one(session_type) for session_type in ("class", "floor")]
+    """Rebuild every Doc. Returns one result dict per session type."""
+    return [sync_one(session_type) for session_type in buffer.SESSION_TYPES]

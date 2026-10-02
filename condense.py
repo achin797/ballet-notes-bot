@@ -3,11 +3,12 @@
 Contract — this is what the rest of the pipeline depends on:
 
     in   raw_notes     verbatim Telegram messages, newline-joined, arrival order
-         session_type  "class" | "floor"
+         session_type  "class" | "floor" | "explore"
     out  markdown string, used as the Notion page body as-is
 
-Both session types call Gemini 3.8 Flash on Vertex AI (see _invoke_llm); the
-only difference between them is which prompt file gets loaded.
+Every session type with a non-empty prompt file calls Gemini 3.8 Flash on Vertex
+AI (see _invoke_llm); the only difference between them is which prompt file gets
+loaded. An empty prompt file means the notes are returned unchanged.
 
 Voice notes go through transcribe() first, which turns audio into the same kind of
 string a typed message would have been. Everything after that is identical — condense()
@@ -27,7 +28,7 @@ _PROMPT_DIR = Path(__file__).parent / "prompts"
 # rather than the first /done after a session.
 _PROMPTS = {
     session_type: (_PROMPT_DIR / f"{session_type}.txt").read_text()
-    for session_type in ("class", "floor")
+    for session_type in ("class", "floor", "explore")
 }
 
 # The vocabulary list is substituted into the transcription prompt once, here, rather
@@ -115,5 +116,11 @@ def transcribe(audio: bytes, mime_type: str = "audio/ogg") -> str:
 
 def condense(raw_notes: str, session_type: str) -> str:
     template = _PROMPTS[session_type]
+    if not template.strip():
+        # An empty prompt file means this session type has no condensing prompt
+        # yet. Pass the notes through untouched rather than sending the model an
+        # empty request — the session still lands in Notion, and condensing
+        # starts on its own once the file has text.
+        return raw_notes
     prompt = template.replace("{RAW_NOTES}", raw_notes)
     return _invoke_llm(prompt)

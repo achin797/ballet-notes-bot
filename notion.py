@@ -12,6 +12,7 @@ LOCAL_TZ = os.environ.get("LOCAL_TZ", "Asia/Kolkata")
 DATA_SOURCE_IDS = {
     "class": os.environ["NOTION_CLASS_DATA_SOURCE_ID"],
     "floor": os.environ["NOTION_FLOOR_DATA_SOURCE_ID"],
+    "explore": os.environ["NOTION_EXPLORE_DATA_SOURCE_ID"],
 }
 
 API_BASE = "https://api.notion.com/v1"
@@ -36,9 +37,10 @@ def chunk(text: str) -> list:
 
 
 def create_entry(session_type: str, condensed: str, raw_notes: str) -> str:
-    """Create a page in the Class or Floor barre database. Returns its URL.
+    """Create a page in the Class, Floor barre or Movement exploration database.
+    Returns its URL.
 
-    Both databases share the same three properties (Name, Date, Raw notes), so
+    All three databases share the same three properties (Name, Date, Raw notes), so
     session_type only selects which one to write to. Floor barre's extra
     "Exercises completed" multi-select is left untouched — deciding which
     exercises a session covered is condensing work, not plumbing.

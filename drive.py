@@ -20,6 +20,7 @@ from google.auth.transport.requests import Request
 DRIVE_DOC_IDS = {
     "class": os.environ["DRIVE_CLASS_DOC_ID"],
     "floor": os.environ["DRIVE_FLOOR_DOC_ID"],
+    "explore": os.environ["DRIVE_EXPLORE_DOC_ID"],
 }
 
 # The function's own runtime service account. Set explicitly rather than read
@@ -30,7 +31,7 @@ _IMPERSONATE_SA = os.environ["DRIVE_IMPERSONATE_SA"]
 # Full drive scope, not the narrower drive.file: drive.file only covers files
 # the calling app itself created, but these Docs are created and owned by the
 # human user and merely shared with the service account. The SA's Drive access
-# is bounded by those two shares regardless of which scope is requested, so
+# is bounded by those three shares regardless of which scope is requested, so
 # drive.file would just 404 on files it did not create.
 _SCOPES = ["https://www.googleapis.com/auth/drive"]
 _DOC_MIME = "application/vnd.google-apps.document"

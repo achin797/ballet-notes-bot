@@ -8,12 +8,12 @@ COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "buffers")
 # One collection holds three document kinds, distinguished by id prefix:
 #   "buf_<chat_id>"    - the in-progress session: raw-note chunks + session type
 #   "upd_<update_id>"  - a marker for an already-processed Telegram update
-#   "sync_<type>"      - hash of the last Google Doc written for class | floor
+#   "sync_<type>"      - hash of the last Google Doc written for class | floor | explore
 # A single collection keeps the Firestore TTL policy to one field on one path.
 BUFFER_TTL_SECONDS = 6 * 60 * 60  # abandoned sessions self-clean after 6h
 DEDUP_TTL_SECONDS = 60 * 60  # dedup markers only need to outlive Telegram's retries
 
-SESSION_TYPES = ("class", "floor")
+SESSION_TYPES = ("class", "floor", "explore")
 
 _db = firestore.Client()
 
@@ -67,7 +67,7 @@ def _append(transaction, ref, text: str):
 
 def append_chunk(chat_id, text: str):
     """Append a raw-notes message. Returns the new chunk count, or None if no
-    session type has been set yet (i.e. the user skipped /class or /floor)."""
+    session type has been set yet (i.e. the user skipped /class, /floor or /explore)."""
     return _append(_db.transaction(), _buffer_ref(chat_id), text)
 
 

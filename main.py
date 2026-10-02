@@ -13,18 +13,20 @@ logger.setLevel(logging.INFO)
 
 _HELP_TEXT = (
     "Log a session in three steps:\n\n"
-    "1. /class or /floor — tell me which kind of session it was\n"
+    "1. /class, /floor or /explore — tell me which kind of session it was\n"
     "2. send your raw notes, across as many messages as you like\n"
     "3. /done — condense them and add the entry to Notion\n\n"
     "Other commands:\n"
     "/start, /help — show this message\n"
     "/quit — discard the current session and start over\n"
-    "/sync — push both Notion databases to their Google Docs (NotebookLM)"
+    "/sync — push all Notion databases to their Google Docs (NotebookLM)"
 )
 
 _NO_SESSION_TEXT = (
-    "Which session was this? Send /class or /floor first, then your notes."
+    "Which session was this? Send /class, /floor or /explore first, then your notes."
 )
+
+_SESSION_COMMANDS = {f"/{t}": t for t in buffer.SESSION_TYPES}
 
 # Telegram only retries when it doesn't get a 200, so every path returns one —
 # including the paths where we deliberately ignore the request.
@@ -85,7 +87,7 @@ def main(request):
 
     if voice is not None:
         # Checked before transcribing rather than relying on append_chunk's refusal,
-        # so a note sent without /class or /floor doesn't cost a model call.
+        # so a note sent without /class, /floor or /explore doesn't cost a model call.
         if not buffer.get_session_type(chat_id):
             telegram.send_message(chat_id, _NO_SESSION_TEXT)
             return _OK
@@ -118,10 +120,10 @@ def main(request):
         telegram.send_message(chat_id, _HELP_TEXT)
         return _OK
 
-    if stripped in ("/class", "/floor"):
-        session_type = stripped.lstrip("/")
+    if stripped in _SESSION_COMMANDS:
+        session_type = _SESSION_COMMANDS[stripped]
         buffer.set_session_type(chat_id, session_type)
-        label = "Class" if session_type == "class" else "Floor barre"
+        label = drive_sync.LABELS[session_type]
         telegram.send_message(
             chat_id, f"{label} session started. Send your notes, then /done."
         )
@@ -130,14 +132,14 @@ def main(request):
     if stripped == "/quit":
         chunks, _ = buffer.get_and_clear_buffer(chat_id)
         if chunks:
-            telegram.send_message(chat_id, "Discarded. Start again with /class or /floor.")
+            telegram.send_message(chat_id, "Discarded. Start again with /class, /floor or /explore.")
         else:
             telegram.send_message(chat_id, "Nothing buffered — already a clean slate.")
         return _OK
 
     if stripped == "/sync":
         # Acknowledged before the work starts: a full rebuild reads every page in
-        # both databases, which takes long enough that a silent bot looks broken.
+        # every database, which takes long enough that a silent bot looks broken.
         telegram.send_message(chat_id, "Syncing Notion → Google Docs…")
         try:
             results = drive_sync.sync_all()
@@ -151,7 +153,7 @@ def main(request):
             return _OK
         lines = []
         for result in results:
-            label = "Class" if result["type"] == "class" else "Floor barre"
+            label = drive_sync.LABELS[result["type"]]
             state = "updated" if result["changed"] else "already up to date"
             lines.append(f"{label}: {state} ({result['sessions']} sessions)")
         telegram.send_message(chat_id, "✅ Sync done\n" + "\n".join(lines))

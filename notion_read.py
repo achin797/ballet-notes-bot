@@ -14,8 +14,8 @@ import requests
 from notion import API_BASE, DATA_SOURCE_IDS, HEADERS
 
 # Notion's own property name on the floor barre data source. Set this env var if
-# it ever gets renamed in Notion — no code change needed. The class data source
-# has no such property; extraction returns [] there.
+# it ever gets renamed in Notion — no code change needed. The class and explore
+# data sources have no such property; extraction returns [] there.
 EXERCISES_PROPERTY = os.environ.get("NOTION_EXERCISES_PROPERTY", "Exercises completed")
 
 logger = logging.getLogger()
