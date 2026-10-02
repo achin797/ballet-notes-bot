@@ -108,17 +108,15 @@ the point of the gate.
 
 ## What's done and what isn't
 
-This is step 1 of a larger roadmap. Class and floor barre are fully wired:
-`prompts/class.txt` and `prompts/floor.txt` are both real prompts, and
-`condense._invoke_llm()` calls Gemini 3.8 Flash on Vertex AI for either one. The
-templates load, `{RAW_NOTES}` is substituted, and the model's reply is what lands
-in Notion.
+This is step 1 of a larger roadmap. All three session types are fully wired:
+`prompts/class.txt`, `prompts/floor.txt` and `prompts/explore.txt` are real
+prompts, and `condense._invoke_llm()` calls Gemini 3.8 Flash on Vertex AI for any
+of them. The templates load, `{RAW_NOTES}` is substituted, and the model's reply
+is what lands in Notion.
 
-Movement exploration (`/explore`) is wired end to end except for its prompt:
-`prompts/explore.txt` is intentionally empty. An empty prompt file means
-passthrough — `condense()` skips the model call and the raw notes become the page
-body as-is. Put a prompt in that file and redeploy, and condensing starts with no
-code change.
+An empty prompt file means passthrough — `condense()` skips the model call and the
+raw notes become the page body as-is. That is how `/explore` ran before its prompt
+was written, and it is how a new session type can ship ahead of its prompt.
 
 Voice notes are wired too — see "Voice notes" below. They're an addition, not a
 replacement: you can type, speak, or mix both inside one session.
@@ -141,7 +139,8 @@ things the prompt has to get right, because nothing downstream cleans up after i
 Keep the files genuinely separate rather than factoring out a shared base.
 The point of splitting them is that a class and a floor barre can ask different
 things of the notes without one prompt trying to serve both — and they now do:
-class notes are named steps, floor barre is numbered Kniaseff exercises.
+class notes are named steps, floor barre is numbered Kniaseff exercises, and
+exploration is a movement map with no corrections at all.
 
 ### Voice notes
 
@@ -570,9 +569,8 @@ identical to the bot being down.
       and a new page appears in **Ballet class notes** with today's date, a
       month-and-day title, and the raw notes preserved.
 - [ ] Same again with `/floor` → the page lands in **Floor barre notes** instead.
-- [ ] Same again with `/explore` → the page lands in **Movement exploration**. While
-      `prompts/explore.txt` is empty the reply comes back fast (no model call) and
-      the page body is the raw notes, unchanged.
+- [ ] Same again with `/explore` → the page lands in **Movement exploration**, with
+      the body starting at **Awareness**.
 - [ ] Voice: `/floor` → send a voice note → bot replies `🎙 Transcribed` → `/done` →
       the Notion page is condensed, ballet terms are spelled correctly, and `Raw notes`
       holds the transcript with its filler intact.
@@ -633,10 +631,10 @@ Notion→Drive→NotebookLM pipeline (do the "NotebookLM sync setup" steps first
   Splitting them up front is cheap and avoids one prompt trying to serve every
   session type later; if they end up identical, nothing is lost.
 - **An empty prompt file means passthrough.** `/explore` shipped before its prompt
-  was designed, so `prompts/explore.txt` is empty and `condense()` returns the raw
-  notes unchanged instead of calling the model. The sessions still land in Notion,
-  and real ones are the material the prompt gets designed against. A stub prompt
-  would have filled the database with a format nobody chose.
+  was designed, so `prompts/explore.txt` started empty and `condense()` returned
+  the raw notes unchanged instead of calling the model. The sessions still landed
+  in Notion. A stub prompt would have filled the database with a format nobody
+  chose. The rule stays in `condense()` for the next session type.
 - **Voice is transcribed, not fed to the condenser as audio.** Handing the audio
   straight to `floor.txt` would save a call, but it leaves the Notion `Raw notes`
   property empty, and it forces audio through a buffer that can only hold strings.
