@@ -37,3 +37,6 @@ Questions / Things to Explore
 * Only questions or ideas I explicitly mentioned in my raw notes. Do not invent new ones.
 
 Keep notes concise. Do not turn single-session observations into “patterns” or conclusions. Do not add anything that isn’t present in my raw notes.
+
+Raw notes:
+{RAW_NOTES}
