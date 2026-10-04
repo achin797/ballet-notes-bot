@@ -1,108 +1,39 @@
-Condense one movement exploration/improvisation session into a fast pre-session review for next exploration.
+Structure my raw movement exploration notes into clear, concise notes.
 
-Goal: remember what my body discovered, what movement pathways are becoming available, what felt alive, and what I should investigate next. Not a chronological summary. Cut anything that doesn't help me enter next session with awareness, curiosity, and a clear intention.
+Focus only on what I observed, experienced, noticed, or did.
 
-Treat exploration as discovery, not performance. Preserve my own language, imagery, felt-sense descriptions, and movement terminology. Do not make my observations clinical or intellectual.
+Do not draw conclusions, diagnose patterns, create theories, or over-interpret.
 
-Organize notes into this skeleton, in this order:
+Preserve uncertainty. If I say “maybe,” “I think,” or “I don’t know,” keep that uncertainty.
 
-1. **Awareness**
+Useful sections:
 
-   * Starting physical state
-   * Energy / mood / bodily sensations
-   * Where attention naturally went
-   * Any image, impulse, or quality already present
-     Keep only observations useful for recognizing my starting state next time.
+Awareness
 
-2. **Intention**
+* What I noticed in my body, mind, energy, balance, tension, etc.
 
-   * What I entered session wanting to explore
-   * Keep my original wording where possible
-   * Distinguish intention from what actually happened
+Intention
 
-3. **North Star**
+* What I was trying to bring attention to or explore.
 
-   * One sentence capturing most important discovery or principle from session.
-   * This should guide how I enter next exploration.
-   * Prefer something that opens exploration rather than giving me choreography.
-   * Keep my felt-sense phrasing if I used it.
+Movement
 
-4. **Movement Map**
-   Group discoveries by movement, quality, action, level, direction, or pathway.
-   Examples:
+* Movements, qualities, pathways, levels, rhythms, or actions that actually happened.
 
-   * movements that appeared naturally
-   * movement families I seem drawn to
-   * recurring qualities
-   * recurring pathways between movements
-   * ways one movement led into another
-   * floor ↔ standing pathways
-   * changes of level, direction, weight, speed, or initiation
-     Do not invent categories that aren't present in my notes.
+What Felt Alive
 
-5. **What Felt Alive**
+* Moments that felt interesting, freeing, smooth, difficult, surprising, etc.
 
-   * Moments where movement felt instinctive, spontaneous, energizing, surprising, or deeply satisfying.
-   * Preserve my exact felt-sense language and imagery where possible.
-   * Mark especially useful discoveries as (worked).
+What Felt Stuck
 
-6. **Connections / Pathways**
+* Moments of blockage, hesitation, repetition, or difficulty.
 
-   * Specific transitions or relationships that felt natural.
-   * Include discoveries such as "spiral → fall," "reach → roll," etc.
-   * Focus on how movement connects, not just isolated movements.
-   * Mark recurring patterns as (recurring).
+Observations
 
-7. **Emerging Patterns**
+* Anything notable from the session that is worth remembering.
 
-   * Things I repeatedly gravitated toward
-   * Movement qualities, body parts, levels, directions, rhythms, or pathways that keep appearing
-   * Keep patterns observational. Do not interpret psychologically unless I explicitly did.
+Questions / Things to Explore
 
-8. **Stuck / Unresolved**
+* Only questions or ideas I explicitly mentioned in my raw notes. Do not invent new ones.
 
-   * Anything where I felt blocked, repetitive, disorganized, self-conscious, or unsure.
-   * If I wrote "I don't know what's wrong," preserve that as an open question.
-   * Do not diagnose or explain the problem.
-   * Mark unresolved observations as (watch).
-
-9. **Experiments**
-
-   * Include only things I explicitly described as something to try, investigate, test, or change.
-   * Separate completed discoveries from untried experiments.
-   * Things I already tried and liked are not experiments.
-
-10. **Try Next Session**
-
-* 1–3 concrete explorations directly arising from my notes.
-* Phrase them as invitations, not rigid tasks.
-* Examples: "Explore three different pathways from spiral into floor," "Return to suspended quality and change level," "Take recurring push/pull pattern into standing."
-* Do not invent exercises unrelated to my notes.
-
-11. **Open Questions**
-
-* Questions my exploration raised but did not answer.
-* Preserve uncertainty.
-* These are things to stay curious about next session.
-
-Rules:
-
-* No preamble, no sign-off.
-* If my notes have nothing for a section, omit that section entirely, heading included. Do not write "none" and do not fill it from other sections. Keep the remaining sections in the same order.
-* Keep output compact enough to read before dancing.
-* Do not write chronological play-by-play.
-* Do not turn discoveries into instructions unless I explicitly framed them as something to try.
-* Do not impose choreography or meaning onto my movement.
-* Do not invent causes, corrections, or interpretations.
-* If I describe a feeling, preserve my wording and imagery.
-* If something recurring appears, mark it (recurring).
-* If something worked and I described why or how it felt, mark it (worked).
-* If something is unresolved, mark it (watch).
-* Say each discovery once.
-* Do not repeat same item across sections.
-* Keep movement terms exactly as I wrote them, including unfamiliar terms.
-* Separate what I actually discovered from what I intended to discover.
-* Prioritize information that helps me build an internal map of movement and enter next session with curiosity rather than self-judgment.
-
-Raw notes:
-{RAW_NOTES}
+Keep notes concise. Do not turn single-session observations into “patterns” or conclusions. Do not add anything that isn’t present in my raw notes.
