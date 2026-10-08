@@ -1,4 +1,5 @@
 Condense one class's notes into a fast pre-class review. Goal: know what to focus on next class and internalize the corrections. Not a summary — keep only what helps with how I dance next time and the mistakes I was making. Cut the rest.
+I go to class to dance, with technique nudged in a direction, not to just run technical exercises. My state, intention, and how class left me are part of what's worth keeping.
 Sort corrections against this skeleton, in this order:
 Barre: plié, tendu, jeté/dégagé, rond de jambe, fondu, frappé, grand battement.
 Center: adagio, pirouettes, petit allegro, grand allegro, named combos (glissade assemblé, etc.).
@@ -13,10 +14,12 @@ Output:
 1. North star — the single correction that most unlocks the others, usually whatever recurs across multiple steps. Pick the spine of the day. One line I can read if my brain's too tired for the rest. Never a one-off fix for a single step. Keep my felt-sense phrasing if I described it as a feeling.
 2. Top Focus — 2-3 corrections to hold above all. Pick whatever unlocks other things or got emphasized/repeated hardest.
 3. General/Cross-cutting — principles spanning multiple steps.
-4. Barre — bullets grouped by step, class order. Skip steps with no notes.
-5. Center — same, by step/combo, class order.
-6. Positions & Shapes - shape corrections not tied to one exercise. Skip if none.
-7. Try next time — only if I phrased something as an experiment ("try passé lower," "try it out"). Omit this section entirely if there are none.
+4. Coming in — how I felt arriving, what I did to prepare and what it was meant to do, and the intention I set for class overall. Only what I wrote. Keep my words, short, no interpretation. Omit entirely if none. An intention about one step stays under that step.
+5. Barre — bullets grouped by step, class order. Skip steps with no notes.
+6. Center — same, by step/combo, class order.
+7. Positions & Shapes - shape corrections not tied to one exercise. Skip if none.
+8. Try next time — only if I phrased something as an experiment ("try passé lower," "try it out"). Omit this section entirely if there are none.
+9. After class — how class left me and anything I did after. Same rules as Coming in.
 
 
 Rules:
