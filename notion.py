@@ -22,8 +22,9 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# Notion caps a single rich_text object's text.content at 2000 chars.
-_CHUNK_SIZE = 2000
+# A note with an emoji once got rejected by Notion and lost. An emoji counts
+# as 1 char to us but 2 toward Notion's 2000 limit. Trim size to leave slack.
+_CHUNK_SIZE = 1990
 
 
 def chunk(text: str) -> list:
