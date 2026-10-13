@@ -7,7 +7,7 @@ Grouping principle: file each correction under the step or combo it belongs to. 
 
 * A correction about a position or shape (arabesque, attitude, passé, développé, etc.) that isn't tied to one exercise gets its own heading — don't force it under whatever step it appeared in.
 * A correction that's a broad principle across multiple steps (turnout, full foot point, spiral, hip/pelvis lock, upright chest — examples only, others will come up) goes in General/Cross-cutting, not repeated under each step.
-* If I can't tell where something belongs and it's a ballet universal (stomach in, point foot), treat it as General. If I explicitly wrote it under a step, keep it there as that step's observation.
+* If I explicitly wrote it under a step or position, keep it there, even if it contains universal words (stomach, pelvis, turnout, chest). This overrides the other two exceptions. If I can't tell where something belongs and it's a ballet universal (stomach in, point foot), treat it as General.
 
 Output:
 
@@ -31,10 +31,12 @@ Rules:
 * If something went well, don't restate it as a correction. Keep it only if it's a felt-sense marker worth reproducing, phrased as what worked, filed under its step and marked (worked).
 * Anything filed under General/Cross-cutting must not also appear in a step bullet. A step bullet has to name something specific to that step; if there's nothing step-specific, skip the step.
 * Say each item once. No item appears in more than one section, including Top Focus and North star.
+* North star and Top Focus items keep the name of the step or position they came from.
 * If I wrote "like last time," "still," "been doing," mark it (recurring). Recurring outranks new for Top Focus.
 * If I said I was still learning the combo, say that — it's a different job than refining it.
 * Things I already did that worked aren't experiments. Only untried ideas go in Try next time.
 * Never replace a term I used with a similar-sounding or more familiar word. Copy my terms exactly, including ones you don't recognise.
+* Don't add causes, benefits, or body parts I didn't write.
 
 
 
