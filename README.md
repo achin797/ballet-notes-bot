@@ -2,9 +2,10 @@
 
 Send raw notes to a Telegram bot after a ballet class, a floor barre session or a
 movement exploration session — typed, spoken as voice notes, or both in the same
-session. It condenses them and
-adds a page to the matching Notion database: title (month and day, e.g. "July 27"),
-today's date, the raw notes, and the condensed entry as the page body.
+session. Each session lives in its own Telegram topic, so several can be open at
+once. On `/done` it condenses the notes and adds a page to the matching Notion
+database: title (month and day the session started, e.g. "July 27"), that date,
+the raw notes, and the condensed entry as the page body.
 
 ```
 raw notes -> Telegram bot -> Cloud Function (condense + write to Notion) -> Notion page
@@ -40,6 +41,33 @@ Cloud Function, gen2  (single function — main.py orchestrates everything below
 | Firestore       | holds each open session's messages (one per topic) until `/done`; dedupes retries | `buffer.py` |
 | Condenser       | runs the per-session-type prompt over the raw notes               | `condense.py`, `prompts/*.txt` |
 | Notion API      | creates the page: Name, Date, Raw notes + condensed body          | `notion.py`                    |
+
+### Code map
+
+| File | What's in it | Change it to… |
+|------|--------------|---------------|
+| `main.py` | webhook entry point; works out *where* a message came from (General, a topic, or topics off) and routes each command (`_start`, `_done`, `_quit`, `_note`, `_voice`, `_sync`) | add a command, change a bot reply |
+| `buffer.py` | every Firestore read/write: sessions, dedup markers, sync hashes; all session state changes are transactions | change how sessions are stored, expiry times |
+| `telegram.py` | Bot API calls: `send_message` (never raises), `topics_enabled`, `create_topic`, `rename_topic`, `download_file`, secret + chat checks | call a new Telegram method |
+| `condense.py` | Gemini calls: `condense()` and `transcribe()` | change the model or its settings |
+| `prompts/*.txt` | one condensing prompt per session type, plus `transcribe.txt` and `vocab.txt` | change what a Notion entry looks like |
+| `notion.py` | creates the Notion page (`create_entry`) | change page properties or title format |
+| `notion_read.py`, `drive.py`, `drive_sync.py` | the `/sync` pipeline below | change the NotebookLM Docs |
+| `deploy.sh` | the one deploy command, with all non-secret config | change project, region, IDs |
+
+Adding a fourth session type means: a prompt file, an entry in `SESSION_TYPES`
+(`buffer.py`), `LABELS` (`drive_sync.py`), the prompt dict in `condense.py`,
+`DATA_SOURCE_IDS` (`notion.py`), and its env vars in `deploy.sh`.
+
+**Firestore documents** (one collection, `buffers`, told apart by id prefix):
+
+- `sess_<chat_id>_<topic id>` — one session. `<topic id>` is `main` when threaded
+  mode is off. Fields: `session_type`, `chat_id`, `thread_id`, `topic_name`,
+  `status` (`open` → `finishing` → `done`, or `open` → `discarded`), `started_at`,
+  `finishing_since` (only while finishing), `chunks` (list of `{text, message_id}`),
+  `expireAt`.
+- `upd_<update_id>` — "already handled" marker for a Telegram update.
+- `sync_<type>` — content hash of the last Google Doc written by `/sync`.
 
 Everything runs on request — there's no server to keep up. Cloud Functions and
 Firestore only cost anything while actually processing a message, which for this
@@ -127,7 +155,7 @@ barre database. Deciding which exercises a session covered is condensing work.
 ### Writing the prompts
 
 Each file in `prompts/` is sent to the model verbatim, with `{RAW_NOTES}` replaced
-by the session's messages joined with newlines, in the order they arrived. Three
+by the session's messages joined with newlines, in the order they were sent. Three
 things the prompt has to get right, because nothing downstream cleans up after it:
 
 - **It must contain the literal `{RAW_NOTES}`.** Without it the notes never reach
@@ -152,7 +180,9 @@ as a typed message would be. Nothing downstream knows the difference — `conden
 On arrival rather than at `/done` for a concrete reason: `buffer.py` keeps a session's
 chunks in a single Firestore document, and Firestore caps a document at 1 MiB. Audio
 doesn't fit. Transcribing first keeps the buffer holding strings, so mixed
-typed-and-spoken sessions work for free, in arrival order.
+typed-and-spoken sessions work for free. Each note is stored with its Telegram
+`message_id` and sorted by it at `/done`, so a slow transcription that finishes
+after a later typed note still lands in the order you sent them.
 
 Transcription is a second Gemini call using `prompts/transcribe.txt`, with
 `prompts/vocab.txt` substituted into it at `{VOCAB}` — a ballet vocabulary list ending
@@ -413,8 +443,8 @@ or against different Notion databases, the values to change are all at the top:
   no editing. It is the function's own runtime service account, which the
   function impersonates to obtain a Drive-scoped token (see "Notes on the
   design")
-- `LOCAL_TZ` — defaults to `Asia/Kolkata`; used to compute the Date field
-  correctly, since the function itself runs in UTC
+- `LOCAL_TZ` — defaults to `Asia/Kolkata`; used for the Date field and the
+  time in topic names, since the function itself runs in UTC
 - `NOTION_VERSION` — leave at `2026-03-11` or later. The page-body `markdown`
   field doesn't exist in older versions, so an earlier value still creates the
   page and its properties but silently drops the condensed entry.
@@ -429,6 +459,11 @@ https://ballet-notes-bot-4mjqzwf6pq-el.a.run.app
 ```
 
 Re-running `./deploy.sh` after a code change is all a redeploy takes.
+
+If you deploy a change to how `buffer.py` stores sessions, finish or `/quit` any
+open session first — a session stored under an old layout won't be found by the
+new code. (This applied to the switch to topics: the old one-per-chat `buf_<chat_id>`
+documents are no longer read.)
 
 ## Register the Telegram webhook
 
@@ -448,7 +483,8 @@ curl "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo"
 ```
 
 The second command should show your URL with `pending_update_count: 0` and no
-`last_error_message`.
+`last_error_message`. Don't add `allowed_updates` to `setWebhook` unless it
+includes `edited_message` — editing a sent note relies on it.
 
 ## Turn on topics (one-time)
 
@@ -523,6 +559,13 @@ that changes a Doc propagates on its own, no re-add needed.
 
 ## Local testing
 
+The examples below have no topic fields, so with threaded mode on they count as
+**General**: `/class` will really create a topic in your Telegram chat, and notes
+or `/done` without a topic are refused. To post into a topic, add
+`"message_thread_id":<topic id>,"is_topic_message":true` to the message (the
+topic id is in the logs, or in the `sess_…` Firestore document).
+
+
 Needs Python 3.10 or later (the deployed runtime is 3.12) — `notion_read.py` uses
 `str | None`, which fails at import on 3.9.
 
@@ -595,6 +638,16 @@ prerequisite 4 for whichever one failed, then re-run the confirm step above.
 **Notion 400 on `/done`** — usually a property name mismatch. The database needs
 `Name`, `Date` and `Raw notes` spelled exactly that way (see 3a).
 
+**`/class` says "Couldn't open a topic"** — threaded mode is off in BotFather, or
+the bot isn't allowed to create topics there. Check `getMe` shows
+`"has_topics_enabled": true`. The bot only re-checks every 10 minutes, so wait
+after changing the setting. Meanwhile you can create a topic by hand and send
+the command inside it.
+
+**Notes inside a topic get "…inside a session's topic, not in General"** — Telegram isn't marking
+those messages `is_topic_message`. Check the `update_id=… topics=…` log line; the
+rule lives at the top of `main()` in `main.py`.
+
 **Nothing happens at all** — check `getWebhookInfo` for `last_error_message`, and
 confirm the `secret_token` you registered matches the `telegram-webhook-secret`
 value in Secret Manager. A mismatch is silently ignored by design, so it looks
@@ -605,9 +658,9 @@ identical to the bot being down.
 - [ ] The Notion confirm curl above returns the expected properties for every database.
 - [ ] `./deploy.sh` succeeds and prints a function URL.
 - [ ] `getWebhookInfo` shows no `last_error_message`.
-- [ ] End-to-end: `/class` → 2-3 messages of real notes → `/done` → bot confirms
-      and a new page appears in **Ballet class notes** with today's date, a
-      month-and-day title, and the raw notes preserved.
+- [ ] End-to-end: `/class` in General → 2-3 messages of real notes in its topic →
+      `/done` there → bot confirms and a new page appears in **Ballet class notes**
+      with the session's start date, a month-and-day title, and the raw notes preserved.
 - [ ] Same again with `/floor` → the page lands in **Floor barre notes** instead.
 - [ ] Same again with `/explore` → the page lands in **Movement exploration**, with
       the body starting at **Awareness**.
@@ -616,10 +669,9 @@ identical to the bot being down.
       holds the transcript with its filler intact.
 - [ ] Mixed: `/floor` → type a message → send a voice note → type again → `/done` →
       all three appear in the entry, in the order sent.
-- [ ] Voice note sent before `/class`, `/floor` or `/explore` → bot asks which
-      session, and does *not* burn a transcription call.
-- [ ] Notes sent before `/class`, `/floor` or `/explore` → bot asks which session;
-      nothing buffered.
+- [ ] Voice note sent in General, or in a topic with no session → refused, and
+      does *not* burn a transcription call.
+- [ ] Notes sent in a topic with no session → refused; nothing buffered.
 - [ ] `/quit` mid-session → notes discarded, no page created.
 - [ ] Topics: `/floor` in General opens a topic; `/class` in General opens a second;
       notes in each → `/done` in each → two pages, each with only its own notes.
@@ -659,11 +711,31 @@ Notion→Drive→NotebookLM pipeline (do the "NotebookLM sync setup" steps first
   can state in one word; inference means an extra model call that can be wrong.
 - **Buffering**: raw notes routinely exceed Telegram's 4096-char message cap, so
   messages accumulate in Firestore until `/done` (or are dropped by `/quit`).
-  Abandoned sessions self-expire after 6 hours.
+  Abandoned sessions expire after 7 days of silence — long, because with topics a
+  session is often left open across hours or overnight.
+- **One session per topic.** The topic a message is sent in decides its session,
+  so nothing needs to remember an "active" session. Only messages Telegram marks
+  `is_topic_message` count as in a topic: a plain reply can carry a
+  `message_thread_id` too, and must not split off into its own session. Anything
+  in General that needs a session is refused rather than guessed.
+- **Topics are single-use.** A finished or discarded topic keeps a 30-day marker
+  and can't start a new session, so a `✅` topic never quietly collects a second
+  entry. A different session type inside an open topic is refused, not relabelled
+  — relabelling would move the notes to another database.
+- **`/done` locks before it works.** It sets the session to `finishing` in a
+  transaction, then condenses and writes to Notion, and only then marks it `done`.
+  A second `/done`, or a note, arriving mid-save is refused instead of making a
+  duplicate page or being wiped. If the save fails the session reopens with its
+  notes. A crash mid-save leaves it `finishing`; after 10 minutes (longer than the
+  function's 540s timeout) a new `/done` may take it over.
+- **Replies never fail the work.** `telegram.send_message` logs instead of raising,
+  and falls back to the main chat if the topic was deleted, so a lost
+  confirmation can't turn a saved page into a reported failure. Telegram errors
+  are re-raised without the request URL, which contains the bot token.
 - **Ordering**: chunks are appended with a read-modify-write transaction rather
-  than `ArrayUnion`, which dedupes equal values and makes no ordering promise —
-  both wrong here, since arrival order is the point and a repeated line may be
-  something you genuinely wrote twice.
+  than `ArrayUnion`, which dedupes equal values — wrong here, since a repeated line
+  may be something you genuinely wrote twice. Order comes from `message_id`
+  at `/done`, not from append order.
 - **Idempotency**: Telegram retries the webhook if it doesn't get a fast 200. Each
   `update_id` is claimed transactionally (1h TTL) so a slow model call can never
   produce two Notion pages.
