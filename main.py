@@ -126,7 +126,7 @@ class _Where:
             self.reply("This session is closed. Start a new one from General with /class, /floor or /explore.")
         elif self.in_topic:
             self.reply(
-                "No open session in this topic — it may have expired after 7 days of "
+                "No open session in this topic — it may have expired after 48 hours of "
                 "silence. Start one from General with /class, /floor or /explore, "
                 "or send one of those here to use this topic."
             )

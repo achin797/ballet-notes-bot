@@ -13,7 +13,7 @@ COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "buffers")
 #   "upd_<update_id>"         - a marker for an already-processed Telegram update
 #   "sync_<type>"             - hash of the last Google Doc written for class | floor | explore
 # A single collection keeps the Firestore TTL policy to one field on one path.
-SESSION_TTL_SECONDS = 7 * 24 * 60 * 60  # an open session survives a week of silence
+SESSION_TTL_SECONDS = 48 * 60 * 60  # an open session survives 48 hours of silence
 CLOSED_TTL_SECONDS = 30 * 24 * 60 * 60  # done/discarded markers: refuse reuse of old topics
 DEDUP_TTL_SECONDS = 60 * 60  # dedup markers only need to outlive Telegram's retries
 # A /done that has been "finishing" longer than the function's 540s timeout

@@ -334,8 +334,8 @@ build service account.
 
 Sessions and dedup markers carry an `expireAt` timestamp. Correctness doesn't
 depend on this — `buffer.py` treats a past `expireAt` as gone on every read — it's
-housekeeping, and Firestore deletes up to ~24h late. Open sessions expire after 7
-days; finished and discarded ones are kept 30 days as markers so their topics
+housekeeping, and Firestore deletes up to ~24h late. Open sessions expire after 48
+hours; finished and discarded ones are kept 30 days as markers so their topics
 can't be reused.
 Not currently applied on the live deployment.
 
@@ -533,7 +533,7 @@ Rules that keep notes from landing in the wrong place:
   refused, and a finished (`✅`) or discarded (`🗑`) topic can't be reused.
 - A second `/done` while one is saving is refused, and so is a note sent mid-save.
 - If `/done` fails, the notes are kept — send `/done` again to retry.
-- An open session expires after 7 days without a message. Notes sent to an
+- An open session expires after 48 hours without a message. Notes sent to an
   expired topic are refused with an explanation.
 - Notes are stored in the order sent (by Telegram `message_id`), even if a slow
   voice transcription finishes after a later typed note.
@@ -711,7 +711,7 @@ Notion→Drive→NotebookLM pipeline (do the "NotebookLM sync setup" steps first
   can state in one word; inference means an extra model call that can be wrong.
 - **Buffering**: raw notes routinely exceed Telegram's 4096-char message cap, so
   messages accumulate in Firestore until `/done` (or are dropped by `/quit`).
-  Abandoned sessions expire after 7 days of silence — long, because with topics a
+  Abandoned sessions expire after 48 hours of silence — long, because with topics a
   session is often left open across hours or overnight.
 - **One session per topic.** The topic a message is sent in decides its session,
   so nothing needs to remember an "active" session. Only messages Telegram marks
