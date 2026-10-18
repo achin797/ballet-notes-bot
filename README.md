@@ -14,7 +14,7 @@ raw notes -> Telegram bot -> Cloud Function (condense + write to Notion) -> Noti
 
 ```
 You (Telegram)
-      │  /class, /floor or /explore, then raw notes — typed and/or voice — then /done
+      │  /class, /floor or /explore (opens a topic), raw notes in it — typed and/or voice — then /done
       ▼
 Telegram Bot API
       │  webhook POST on every message
@@ -37,7 +37,7 @@ Cloud Function, gen2  (single function — main.py orchestrates everything below
 | Telegram bot    | your only interface — send notes, get a confirmation + link back | `telegram.py`                  |
 | Transcriber     | turns a voice note into the text a typed message would have been  | `condense.transcribe()`        |
 | Cloud Function  | receives the webhook, routes commands, orchestrates the pipeline | `main.py`                      |
-| Firestore       | holds a session's buffered messages until `/done`; dedupes retries | `buffer.py`                  |
+| Firestore       | holds each open session's messages (one per topic) until `/done`; dedupes retries | `buffer.py` |
 | Condenser       | runs the per-session-type prompt over the raw notes               | `condense.py`, `prompts/*.txt` |
 | Notion API      | creates the page: Name, Date, Raw notes + condensed body          | `notion.py`                    |
 
@@ -302,8 +302,11 @@ build service account.
 
 ### 5c. Firestore TTL (optional cleanup)
 
-Abandoned sessions and dedup markers carry an `expireAt` timestamp. Correctness
-doesn't depend on this — it's housekeeping, and Firestore deletes up to ~24h late.
+Sessions and dedup markers carry an `expireAt` timestamp. Correctness doesn't
+depend on this — `buffer.py` treats a past `expireAt` as gone on every read — it's
+housekeeping, and Firestore deletes up to ~24h late. Open sessions expire after 7
+days; finished and discarded ones are kept 30 days as markers so their topics
+can't be reused.
 Not currently applied on the live deployment.
 
 ```bash
@@ -447,20 +450,57 @@ curl "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo"
 The second command should show your URL with `pending_update_count: 0` and no
 `last_error_message`.
 
+## Turn on topics (one-time)
+
+Each session gets its own Telegram topic, so several can be open at once — start
+a floor barre, then a class, and keep adding to both. This needs the bot's
+threaded mode on:
+
+1. Open @BotFather and tap **Open** (bottom left) to launch its mini app — the
+   setting isn't in the typed `/mybots` menu.
+2. Pick the bot → **Bot Settings** → **Threads Settings** → turn **Threaded Mode** on.
+3. Update Telegram, then reopen the chat with the bot: it now shows a topic list
+   with **General**.
+
+The bot checks this setting itself (`getMe` → `has_topics_enabled`, cached 10
+minutes). With threaded mode off it falls back to one session per chat, exactly
+as before topics.
+
 ## Using it
 
-1. Send `/class`, `/floor` or `/explore` to tell the bot which kind of session it was.
-2. Send your raw notes, split across as many messages as you like (Telegram caps
-   a single message at 4096 characters). Voice notes work too, and can be mixed
-   freely with typed messages — each is transcribed as it arrives and the bot
-   replies `🎙 Transcribed (N message(s) buffered)`.
-3. Send `/done`.
+1. In **General**, send `/class`, `/floor` or `/explore`. The bot opens a topic
+   named e.g. `Floor barre · Oct 18, 10:05` and starts the session there.
+   (Or create a topic yourself and send the command inside it.)
+2. Inside that topic, send your raw notes, split across as many messages as you
+   like (Telegram caps a single message at 4096 characters). Voice notes work too,
+   and can be mixed freely with typed messages — each is transcribed as it arrives
+   and the bot replies `🎙 Transcribed (N message(s) buffered)`. Editing a sent
+   note updates it, while the session is open.
+3. Send `/done` inside the topic.
 
-The bot replies `✅ Added to Notion` with a link once the page is created.
+The bot replies `✅ Added to Notion` with a link in the topic, and renames it
+`✅ Floor barre · Oct 18, 10:05`. The page is dated by when the session *started*,
+so one finished after midnight lands on the right day.
 
-Other commands: `/start` or `/help` for usage instructions, `/quit` to discard the
-current session and start over. Notes sent before `/class`, `/floor` or `/explore`
-are refused rather than buffered — the bot won't guess which database they belong in.
+Several sessions can be open at once — each topic is its own session. Other commands:
+
+- `/sessions` — list the open sessions, anywhere.
+- `/quit` inside a topic — discard its notes; the topic is renamed `🗑 …` and kept,
+  never deleted.
+- `/start` or `/help` — usage instructions.
+
+Rules that keep notes from landing in the wrong place:
+
+- Notes, voice notes, `/done` and `/quit` sent in **General** are refused with the
+  list of open sessions — the bot won't guess which session they belong to.
+- A topic holds one session of one type: `/class` inside a floor barre topic is
+  refused, and a finished (`✅`) or discarded (`🗑`) topic can't be reused.
+- A second `/done` while one is saving is refused, and so is a note sent mid-save.
+- If `/done` fails, the notes are kept — send `/done` again to retry.
+- An open session expires after 7 days without a message. Notes sent to an
+  expired topic are refused with an explanation.
+- Notes are stored in the order sent (by Telegram `message_id`), even if a slow
+  voice transcription finishes after a later typed note.
 
 ### NotebookLM
 
@@ -581,6 +621,13 @@ identical to the bot being down.
 - [ ] Notes sent before `/class`, `/floor` or `/explore` → bot asks which session;
       nothing buffered.
 - [ ] `/quit` mid-session → notes discarded, no page created.
+- [ ] Topics: `/floor` in General opens a topic; `/class` in General opens a second;
+      notes in each → `/done` in each → two pages, each with only its own notes.
+- [ ] `/class` inside the floor topic → refused; floor session unchanged.
+- [ ] Note in General → refused with the open-session list.
+- [ ] Double-tap `/done` → one page only.
+- [ ] Logs show `is_topic_message=True` for messages inside a topic and `None` in
+      General (the `update_id=… topics=…` line).
 - [ ] Security: POST to the function URL without the `X-Telegram-Bot-Api-Secret-Token`
       header → silently ignored (200, no page). Message the bot from a different
       Telegram account → "Not authorized", no page.

@@ -37,7 +37,9 @@ def chunk(text: str) -> list:
     ]
 
 
-def create_entry(session_type: str, condensed: str, raw_notes: str) -> str:
+def create_entry(
+    session_type: str, condensed: str, raw_notes: str, started_at=None
+) -> str:
     """Create a page in the Class, Floor barre or Movement exploration database.
     Returns its URL.
 
@@ -45,8 +47,13 @@ def create_entry(session_type: str, condensed: str, raw_notes: str) -> str:
     session_type only selects which one to write to. Floor barre's extra
     "Exercises completed" multi-select is left untouched — deciding which
     exercises a session covered is condensing work, not plumbing.
+
+    started_at (an aware datetime) dates the page by when the session began, so
+    a session finished after midnight still lands on the day it happened.
+    Defaults to now.
     """
-    now = datetime.now(ZoneInfo(LOCAL_TZ))
+    tz = ZoneInfo(LOCAL_TZ)
+    now = started_at.astimezone(tz) if started_at is not None else datetime.now(tz)
     # Title is the month name followed by the day number, e.g. "July 27".
     title = f"{now.strftime('%B')} {now.day}"
 
