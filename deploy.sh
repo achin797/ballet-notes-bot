@@ -18,8 +18,7 @@ NOTION_VERSION="2026-03-11"
 NOTION_CLASS_DATA_SOURCE_ID="3aa3ef88-7ec8-8075-95b7-000b8a6396eb"
 NOTION_FLOOR_DATA_SOURCE_ID="6c63ef88-7ec8-822b-b773-8786b5e160d0"
 NOTION_EXPLORE_DATA_SOURCE_ID="3e43ef88-7ec8-8092-bd56-000b11bad5db"
-# TODO: replace with the Skill training database's data source id, then drop the :? guard.
-NOTION_SKILL_DATA_SOURCE_ID="${NOTION_SKILL_DATA_SOURCE_ID:?create the Skill training Notion database and set its data source id}"
+NOTION_SKILL_DATA_SOURCE_ID="def3ef88-7ec8-82bf-8df2-870ea31ef717"
 
 # Vertex AI (Gemini). "global" avoids per-region model availability checks.
 VERTEX_PROJECT="$PROJECT_ID"
@@ -31,8 +30,7 @@ VERTEX_LOCATION="global"
 DRIVE_CLASS_DOC_ID="1q8-TJqbIzRHhji9wmMwzcXP5SE8FmVmbqMsgEp6pbGY"
 DRIVE_FLOOR_DOC_ID="1Iu9ah3IJ1mUDIjmASLOgCoeOiGyOB3zaJttQh5tQtP0"
 DRIVE_EXPLORE_DOC_ID="1Y3eDgKzCJ4a1OpuFJYCMW7WG-9F2LjjchvmHcjgic2U"
-# TODO: replace with the "Ballet — Skill Training Notes" Doc id, then drop the :? guard.
-DRIVE_SKILL_DOC_ID="${DRIVE_SKILL_DOC_ID:?create the Skill Training Google Doc and set its file id}"
+DRIVE_SKILL_DOC_ID="1xX7IyTyuUfaGOe2npuUFiOYR38gVW7txmah9GYVn-tA"
 
 # The function's own runtime service account, impersonated to obtain a
 # Drive-scoped token (Cloud Run's metadata token is cloud-platform only, which
