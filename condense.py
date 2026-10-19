@@ -3,7 +3,7 @@
 Contract — this is what the rest of the pipeline depends on:
 
     in   raw_notes     verbatim Telegram messages, newline-joined, arrival order
-         session_type  "class" | "floor" | "explore"
+         session_type  "class" | "floor" | "explore" | "skill"
     out  markdown string, used as the Notion page body as-is
 
 Every session type with a non-empty prompt file calls Gemini 3.8 Flash on Vertex
@@ -28,7 +28,7 @@ _PROMPT_DIR = Path(__file__).parent / "prompts"
 # rather than the first /done after a session.
 _PROMPTS = {
     session_type: (_PROMPT_DIR / f"{session_type}.txt").read_text()
-    for session_type in ("class", "floor", "explore")
+    for session_type in ("class", "floor", "explore", "skill")
 }
 
 # The vocabulary list is substituted into the transcription prompt once, here, rather

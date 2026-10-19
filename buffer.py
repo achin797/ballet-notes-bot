@@ -11,7 +11,7 @@ COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "buffers")
 #                               <thread> is the Telegram topic id, or "main"
 #                               when the bot's threaded mode is off.
 #   "upd_<update_id>"         - a marker for an already-processed Telegram update
-#   "sync_<type>"             - hash of the last Google Doc written for class | floor | explore
+#   "sync_<type>"             - hash of the last Google Doc written for class | floor | explore | skill
 # A single collection keeps the Firestore TTL policy to one field on one path.
 SESSION_TTL_SECONDS = 48 * 60 * 60  # an open session survives 48 hours of silence
 CLOSED_TTL_SECONDS = 30 * 24 * 60 * 60  # done/discarded markers: refuse reuse of old topics
@@ -20,7 +20,7 @@ DEDUP_TTL_SECONDS = 60 * 60  # dedup markers only need to outlive Telegram's ret
 # must have crashed mid-way, so a new /done may take it over.
 STALE_FINISH_SECONDS = 10 * 60
 
-SESSION_TYPES = ("class", "floor", "explore")
+SESSION_TYPES = ("class", "floor", "explore", "skill")
 
 OPEN, FINISHING, DONE, DISCARDED = "open", "finishing", "done", "discarded"
 

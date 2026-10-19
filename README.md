@@ -1,7 +1,7 @@
 # Ballet notes bot
 
-Send raw notes to a Telegram bot after a ballet class, a floor barre session or a
-movement exploration session — typed, spoken as voice notes, or both in the same
+Send raw notes to a Telegram bot after a ballet class, a floor barre session, a
+movement exploration session or a skill-training session — typed, spoken as voice notes, or both in the same
 session. Each session lives in its own Telegram topic, so several can be open at
 once. On `/done` it condenses the notes and adds a page to the matching Notion
 database: title (month and day the session started, e.g. "July 27"), that date,
@@ -15,7 +15,7 @@ raw notes -> Telegram bot -> Cloud Function (condense + write to Notion) -> Noti
 
 ```
 You (Telegram)
-      │  /class, /floor or /explore (opens a topic), raw notes in it — typed and/or voice — then /done
+      │  /class, /floor, /explore or /skill (opens a topic), raw notes in it — typed and/or voice — then /done
       ▼
 Telegram Bot API
       │  webhook POST on every message
@@ -29,8 +29,9 @@ Cloud Function, gen2  (single function — main.py orchestrates everything below
                                                               │
                                                               ▼
                                             New page in Ballet class notes,
-                                                     Floor barre notes
-                                                     or Movement exploration
+                                                     Floor barre notes,
+                                                     Movement exploration
+                                                     or Skill training
 ```
 
 | Piece           | Role                                                             | File                           |
@@ -99,7 +100,7 @@ Cloud Function, gen2  (same function, same code — main.py routes to drive_sync
 | `/sync` command      | triggers a full rebuild of every Doc, on demand                   | `main.py`       |
 | Notion API (read)   | data source query + per-page markdown fetch                       | `notion_read.py` |
 | Google Drive API    | overwrites each target Doc's full content when its content changed | `drive.py`      |
-| Firestore           | stores the SHA-256 of the last Doc content written, per session type | `buffer.py` (`sync_class`, `sync_floor`, `sync_explore`) |
+| Firestore           | stores the SHA-256 of the last Doc content written, per session type | `buffer.py` (`sync_class`, `sync_floor`, `sync_explore`, `sync_skill`) |
 | NotebookLM          | auto-syncs each Doc once added as a source — no manual re-add ever | (Google's UI, one-time) |
 
 **Why a full overwrite every run, not an incremental append**: the sync has no
@@ -136,8 +137,9 @@ the point of the gate.
 
 ## What's done and what isn't
 
-This is step 1 of a larger roadmap. All three session types are fully wired:
-`prompts/class.txt`, `prompts/floor.txt` and `prompts/explore.txt` are real
+This is step 1 of a larger roadmap. All four session types are fully wired:
+`prompts/class.txt`, `prompts/floor.txt`, `prompts/explore.txt` and
+`prompts/skill.txt` are real
 prompts, and `condense._invoke_llm()` calls Gemini 3.8 Flash on Vertex AI for any
 of them. The templates load, `{RAW_NOTES}` is substituted, and the model's reply
 is what lands in Notion.
@@ -235,7 +237,7 @@ call, so the retry is dropped and only the original invocation replies.
    Message `@userinfobot` to get your own numeric Telegram user id.
 2. **Notion integration** — [notion.so/my-integrations](https://notion.so/my-integrations)
    → New internal integration → copy the secret token.
-3. **Three Notion databases** — see 3a below for the exact properties they need.
+3. **Four Notion databases** — see 3a below for the exact properties they need.
 4. **Share every database with the integration** — open each one in Notion →
    `...` menu → Connections → add your integration. Without this the API returns
    404, and it's easy to do for one database and forget another.
@@ -243,7 +245,7 @@ call, so the retry is dropped and only the original invocation replies.
    (`brew install --cask google-cloud-sdk`). See 5a and 5b below — 5b is the part
    that will otherwise fail your first deploy.
 
-### 3a. The three databases
+### 3a. The four databases
 
 Create each by hand in Notion. Property names must match **exactly**, including
 capitalisation — `notion.py` addresses them by literal string, so `Raw Notes`
@@ -254,13 +256,14 @@ instead of `Raw notes` is a 400 at write time.
 | Ballet class notes   | `Name` (title), `Date` (date), `Raw notes` (text)                 |
 | Floor barre notes    | the same three, plus `Exercises completed` (multi-select)         |
 | Movement exploration | `Name` (title), `Date` (date), `Raw notes` (text)                 |
+| Skill training       | `Name` (title), `Date` (date), `Raw notes` (text)                 |
 
 `Name` is the default title property every Notion database starts with — you only
 have to add the rest. The `Exercises completed` options are yours to define; the
 bot never writes to it.
 
 Then grab each database's **data source id**: `...` menu → Manage data sources →
-Copy data source ID. You'll need all three in `deploy.sh`. Note this is *not* the id in
+Copy data source ID. You'll need all four in `deploy.sh`. Note this is *not* the id in
 the database's URL — those are different objects.
 
 ### 5a. Point gcloud at the project and turn on the APIs
@@ -355,16 +358,16 @@ repo, done in order:
    gcloud services enable drive.googleapis.com iamcredentials.googleapis.com \
      --project=project-69fd2b15-f478-43ca-b5d
    ```
-2. **Create three Google Docs yourself** — Drive → New → Google Doc, leave them
+2. **Create four Google Docs yourself** — Drive → New → Google Doc, leave them
    empty, name them whatever you want to see in NotebookLM (e.g.
-   "Ballet — Class Notes", "Ballet — Floor Barre Notes" and
-   "Ballet — Movement Exploration Notes"). They must be owned
+   "Ballet — Class Notes", "Ballet — Floor Barre Notes",
+   "Ballet — Movement Exploration Notes" and "Ballet — Skill Training Notes"). They must be owned
    by your real Google account, not the service account: a service account on
    a consumer Gmail account has no usable Drive storage, and a NotebookLM
    source has to be a file you can see in your own Drive picker. Copy each
    file ID from its URL (`docs.google.com/document/d/<FILE_ID>/edit`) into
-   `DRIVE_CLASS_DOC_ID`, `DRIVE_FLOOR_DOC_ID` and `DRIVE_EXPLORE_DOC_ID` in
-   `deploy.sh`.
+   `DRIVE_CLASS_DOC_ID`, `DRIVE_FLOOR_DOC_ID`, `DRIVE_EXPLORE_DOC_ID` and
+   `DRIVE_SKILL_DOC_ID` in `deploy.sh`.
 3. **Share every Doc with the runtime service account as Editor**:
    ```bash
    PROJECT_NUMBER=$(gcloud projects describe project-69fd2b15-f478-43ca-b5d --format='value(projectNumber)')
@@ -394,7 +397,7 @@ repo, done in order:
    ever written pages. notion.so → Settings → Connections → your integration
    → Capabilities → check **Read content**. Without this, `GET
    /pages/{id}/markdown` 403s. Also confirm the integration is connected to
-   **every** database (see "3a. The three databases" above) — a missing
+   **every** database (see "3a. The four databases" above) — a missing
    connection here 404s instead.
 
 **Add the Docs to NotebookLM only after the first successful `/sync`** — an
@@ -436,8 +439,9 @@ or against different Notion databases, the values to change are all at the top:
 
 - `PROJECT_ID`, `REGION`, `FUNCTION_NAME`
 - `NOTION_CLASS_DATA_SOURCE_ID`, `NOTION_FLOOR_DATA_SOURCE_ID`,
-  `NOTION_EXPLORE_DATA_SOURCE_ID` — from 3a above
-- `DRIVE_CLASS_DOC_ID`, `DRIVE_FLOOR_DOC_ID`, `DRIVE_EXPLORE_DOC_ID` — the three
+  `NOTION_EXPLORE_DATA_SOURCE_ID`, `NOTION_SKILL_DATA_SOURCE_ID` — from 3a above
+- `DRIVE_CLASS_DOC_ID`, `DRIVE_FLOOR_DOC_ID`, `DRIVE_EXPLORE_DOC_ID`,
+  `DRIVE_SKILL_DOC_ID` — the four
   Google Doc file IDs from the "NotebookLM sync setup" section above
 - `DRIVE_IMPERSONATE_SA` — derived from `PROJECT_ID` at deploy time, so it needs
   no editing. It is the function's own runtime service account, which the
@@ -504,7 +508,7 @@ as before topics.
 
 ## Using it
 
-1. In **General**, send `/class`, `/floor` or `/explore`. The bot opens a topic
+1. In **General**, send `/class`, `/floor`, `/explore` or `/skill`. The bot opens a topic
    named e.g. `Floor barre · Oct 18, 10:05` and starts the session there.
    (Or create a topic yourself and send the command inside it.)
 2. Inside that topic, send your raw notes, split across as many messages as you
@@ -580,8 +584,8 @@ pip install -r requirements.txt
 
 export TELEGRAM_BOT_TOKEN=... TELEGRAM_WEBHOOK_SECRET=test-secret ALLOWED_CHAT_ID=...
 export NOTION_TOKEN=... NOTION_CLASS_DATA_SOURCE_ID=... NOTION_FLOOR_DATA_SOURCE_ID=...
-export NOTION_EXPLORE_DATA_SOURCE_ID=...
-export DRIVE_CLASS_DOC_ID=... DRIVE_FLOOR_DOC_ID=... DRIVE_EXPLORE_DOC_ID=...
+export NOTION_EXPLORE_DATA_SOURCE_ID=... NOTION_SKILL_DATA_SOURCE_ID=...
+export DRIVE_CLASS_DOC_ID=... DRIVE_FLOOR_DOC_ID=... DRIVE_EXPLORE_DOC_ID=... DRIVE_SKILL_DOC_ID=...
 export DRIVE_IMPERSONATE_SA=<project number>-compute@developer.gserviceaccount.com
 export GOOGLE_CLOUD_PROJECT=project-69fd2b15-f478-43ca-b5d
 export VERTEX_PROJECT=project-69fd2b15-f478-43ca-b5d
@@ -664,6 +668,8 @@ identical to the bot being down.
 - [ ] Same again with `/floor` → the page lands in **Floor barre notes** instead.
 - [ ] Same again with `/explore` → the page lands in **Movement exploration**, with
       the body starting at **Awareness**.
+- [ ] Same again with `/skill` → the page lands in **Skill training**, with the body
+      starting at **North star** and drills listed in the order sent.
 - [ ] Voice: `/floor` → send a voice note → bot replies `🎙 Transcribed` → `/done` →
       the Notion page is condensed, ballet terms are spelled correctly, and `Raw notes`
       holds the transcript with its filler intact.
@@ -697,15 +703,15 @@ Notion→Drive→NotebookLM pipeline (do the "NotebookLM sync setup" steps first
       working. If it says "updated" twice in a row with no Notion change, something
       run-varying leaked into the hashed content (check `drive_sync.py`'s
       `_render_sessions` vs `_render`).
-- [ ] Firestore → `buffers` collection → `sync_class`, `sync_floor` and
-      `sync_explore` documents exist, each with `contentHash` and `syncedAt`, and
+- [ ] Firestore → `buffers` collection → `sync_class`, `sync_floor`,
+      `sync_explore` and `sync_skill` documents exist, each with `contentHash` and `syncedAt`, and
       no `expireAt`.
 - [ ] After adding every Doc to a NotebookLM notebook, ask it a question spanning
       session types and confirm it cites more than one source.
 
 ## Notes on the design
 
-- **Session type is an explicit command.** `/class`, `/floor` and `/explore` set it before any
+- **Session type is an explicit command.** `/class`, `/floor`, `/explore` and `/skill` set it before any
   notes are buffered, rather than a button at `/done` or inferring it from the
   notes. A button means handling a second Telegram update type for a decision you
   can state in one word; inference means an extra model call that can be wrong.

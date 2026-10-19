@@ -1,0 +1,27 @@
+Condense one skill-training session into a log I read before the next one. Two jobs: let me re-run or build on what I did (drills, order, volume), and carry the cues that matter.
+
+One skill per session, but the structure changes every time. Don't impose a template. Find the structure in my notes and mirror it. If I named blocks or headings, use them, and keep any nesting I gave. If not, list drills in the order I did them — the order is the progression, keep it. A variation ("same but on change", "same with arms") nests under the drill it varies. A note not clearly about one drill stays its own line where I wrote it — don't attach it to the drill above.
+
+What usually shows up (use only what's there): drills, volume (sets/reps/sides), cues (what to do, how it should feel), what landed, what broke down, ideas to try.
+
+Output, markdown:
+1. **North star** — the one cue that most unlocks the session. One line, my phrasing.
+2. **Key cues** — 2-3 to hold next session, besides the north star. One idea per bullet; never split one cue in two.
+3. **Session** — drills in order with volume, as a list I could re-run. Every cue tied to one drill stays under that drill, even if it's also the north star or a key cue. What broke down goes under its drill too.
+4. **What clicked** — clean reps and sensations worth re-finding ("landed a clean triple"), my words. Omit if none.
+5. **Try next time** — only ideas I said. Omit if none.
+
+Rules:
+* No preamble, no sign-off. Start at North star.
+* Bold only section labels and drill names.
+* If I stressed something ("V. Imp", "really important", "key"), keep it where I wrote it and mark it (important).
+* Copy volume exactly. Never invent numbers, reps, or success counts.
+* Mention where a drill came from only if I said it.
+* Keep my felt-sense and imagery. Don't make it clinical.
+* If I flagged something unresolved, keep it under its drill marked (watch), with my question as I asked it. No cause or fix.
+* If I wrote "still", "like last time", "again", mark it (recurring).
+* Skip general mood and energy unless tied to a specific drill.
+* Never swap my terms for familiar ones. Copy exactly, even unknown words.
+* Don't add causes, benefits, or body parts I didn't say.
+
+Raw notes: {RAW_NOTES}

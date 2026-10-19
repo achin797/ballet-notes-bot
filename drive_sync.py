@@ -28,12 +28,19 @@ _DOC_TITLES = {
     "class": "Ballet — Class Notes",
     "floor": "Ballet — Floor Barre Notes",
     "explore": "Ballet — Movement Exploration Notes",
+    "skill": "Ballet — Skill Training Notes",
 }
-LABELS = {"class": "Class", "floor": "Floor barre", "explore": "Exploration"}
+LABELS = {
+    "class": "Class",
+    "floor": "Floor barre",
+    "explore": "Exploration",
+    "skill": "Skill training",
+}
 _BLURBS = {
     "class": "studio class sessions",
     "floor": "Kniaseff floor barre sessions",
     "explore": "movement exploration (improvisation) sessions",
+    "skill": "solo skill-training (drilling) sessions",
 }
 
 logger = logging.getLogger()

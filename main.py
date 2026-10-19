@@ -15,7 +15,7 @@ logger.setLevel(logging.INFO)
 
 _HELP_TEXT = (
     "Log a session in three steps:\n\n"
-    "1. /class, /floor or /explore — tell me which kind of session it was\n"
+    "1. /class, /floor, /explore or /skill — tell me which kind of session it was\n"
     "2. send your raw notes, across as many messages as you like\n"
     "3. /done — condense them and add the entry to Notion\n\n"
     "With topics on, step 1 opens a new topic for the session. Send its notes and "
@@ -28,7 +28,7 @@ _HELP_TEXT = (
 )
 
 _NO_SESSION_TEXT = (
-    "Which session was this? Send /class, /floor or /explore first, then your notes."
+    "Which session was this? Send /class, /floor, /explore or /skill first, then your notes."
 )
 
 _SESSION_COMMANDS = {f"/{t}": t for t in buffer.SESSION_TYPES}
@@ -87,7 +87,7 @@ def _session_name(session) -> str:
 def _open_sessions_text(chat_id) -> str:
     sessions = buffer.list_open(chat_id)
     if not sessions:
-        return "No open sessions. Start one with /class, /floor or /explore."
+        return "No open sessions. Start one with /class, /floor, /explore or /skill."
     lines = ["Open sessions:"]
     for session in sessions:
         count = len(session.get("chunks") or [])
@@ -123,11 +123,11 @@ class _Where:
         if outcome == "finishing":
             self.reply("⏳ This session is being saved to Notion — that message wasn't added.")
         elif self.in_topic and outcome == "closed":
-            self.reply("This session is closed. Start a new one from General with /class, /floor or /explore.")
+            self.reply("This session is closed. Start a new one from General with /class, /floor, /explore or /skill.")
         elif self.in_topic:
             self.reply(
                 "No open session in this topic — it may have expired after 48 hours of "
-                "silence. Start one from General with /class, /floor or /explore, "
+                "silence. Start one from General with /class, /floor, /explore or /skill, "
                 "or send one of those here to use this topic."
             )
         else:
@@ -242,7 +242,7 @@ def _quit(where: _Where) -> None:
             where.reply("Discarded. The topic stays as a record; start a new session from General.")
             telegram.rename_topic(where.chat_id, where.thread_id, "🗑 " + _session_name(session))
         else:
-            where.reply("Discarded. Start again with /class, /floor or /explore.")
+            where.reply("Discarded. Start again with /class, /floor, /explore or /skill.")
     elif outcome == "finishing":
         where.reply("⏳ This session is being saved to Notion — too late to discard it.")
     else:
