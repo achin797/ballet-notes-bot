@@ -6,7 +6,7 @@ Contract — this is what the rest of the pipeline depends on:
          session_type  "class" | "floor" | "explore" | "skill"
     out  markdown string, used as the Notion page body as-is
 
-Every session type with a non-empty prompt file calls Gemini 3.8 Flash on Vertex
+Every session type with a non-empty prompt file calls Gemini 4 Hydrogen on Vertex
 AI (see _invoke_llm); the only difference between them is which prompt file gets
 loaded. An empty prompt file means the notes are returned unchanged.
 
@@ -37,7 +37,18 @@ _TRANSCRIBE_PROMPT = (_PROMPT_DIR / "transcribe.txt").read_text().replace(
     "{VOCAB}", (_PROMPT_DIR / "vocab.txt").read_text()
 )
 
-_MODEL = "gemini-3.8-flash"
+_MODEL = "gemini-4-hydrogen"
+
+# Hydrogen defaults to HIGH thinking; 3.8 Flash defaulted to MEDIUM. Pinned to
+# MEDIUM so latency stays where it was — /done and long voice notes already came
+# close to the timeout below. Valid values: LOW, MEDIUM, HIGH, XHIGH. MINIMAL and
+# the old thinking_budget are rejected with a 400 on Gemini 4.
+#
+# No temperature/top_p/top_k: Gemini 4 ignores custom sampling values, so setting
+# them would only suggest a control that doesn't exist.
+_CONFIG = types.GenerateContentConfig(
+    thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MEDIUM),
+)
 
 # "global" location sidesteps Vertex's per-region model availability — the
 # thing that would otherwise force checking whether asia-south1 carries this
@@ -74,7 +85,7 @@ def _invoke_llm(prompt: str) -> str:
     response = _client.models.generate_content(
         model=_MODEL,
         contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.2),
+        config=_CONFIG,
     )
     if not response.text:
         finish_reason = (
@@ -101,10 +112,10 @@ def transcribe(audio: bytes, mime_type: str = "audio/ogg") -> str:
             types.Part.from_bytes(data=audio, mime_type=mime_type),
             types.Part.from_text(text=_TRANSCRIBE_PROMPT),
         ],
-        # 0.0, unlike condensing's 0.2: this is recognition, not writing. Sampling
-        # freedom here shows up as ballet terms drifting into similar-sounding
-        # English words.
-        config=types.GenerateContentConfig(temperature=0.0),
+        # Was temperature 0.0 on 3.8 Flash, to stop ballet terms drifting into
+        # similar-sounding English words. Gemini 4 ignores temperature, so
+        # prompts/vocab.txt's misheard-terms map is now the only guard against it.
+        config=_CONFIG,
     )
     if not response.text:
         finish_reason = (

@@ -140,7 +140,7 @@ the point of the gate.
 This is step 1 of a larger roadmap. All four session types are fully wired:
 `prompts/class.txt`, `prompts/floor.txt`, `prompts/explore.txt` and
 `prompts/skill.txt` are real
-prompts, and `condense._invoke_llm()` calls Gemini 3.8 Flash on Vertex AI for any
+prompts, and `condense._invoke_llm()` calls Gemini 4 Hydrogen on Vertex AI for any
 of them. The templates load, `{RAW_NOTES}` is substituted, and the model's reply
 is what lands in Notion.
 
@@ -207,7 +207,7 @@ so audio is always sent inline — no bucket, no `getFile` size handling.
 
 ### The model call
 
-`condense._invoke_llm()` calls **Gemini 3.8 Flash** on Vertex AI (`gemini-3.8-flash`,
+`condense._invoke_llm()` calls **Gemini 4 Hydrogen** on Vertex AI (`gemini-4-hydrogen`,
 via the `google-genai` SDK, `vertexai=True`). Requires:
 
 - `aiplatform.googleapis.com` enabled (see 5a) — no separate Model Garden access
@@ -215,10 +215,24 @@ via the `google-genai` SDK, `vertexai=True`). Requires:
 - `VERTEX_PROJECT` / `VERTEX_LOCATION` env vars (set in `deploy.sh`).
   `VERTEX_LOCATION` defaults to `"global"`, which sidesteps Vertex's per-region
   model availability — no need to check whether a given region carries this model;
-- `google-genai` in `requirements.txt`;
+- `google-genai>=2.34.0` in `requirements.txt` — the first version that supports
+  Gemini 4;
 - the runtime service account holding `roles/aiplatform.user` (see 5b).
 
 No secret is needed — Vertex authenticates as the function's service account.
+
+Request settings, shared by `condense()` and `transcribe()` (`_CONFIG` in
+`condense.py`):
+
+- **`thinking_level=MEDIUM`.** Hydrogen defaults to `HIGH`; 3.8 Flash defaulted to
+  `MEDIUM`. Pinned to keep latency where it was, given the timeout history below.
+  Valid values are `LOW`, `MEDIUM`, `HIGH`, `XHIGH`; `MINIMAL` and the old
+  `thinking_budget` return a 400.
+- **No `temperature`.** Gemini 4 ignores custom `temperature`/`top_p`/`top_k`, so
+  none are sent. Condensing used `0.2` and transcription `0.0` on 3.8 Flash. The
+  `0.0` was there to stop ballet terms drifting into similar-sounding English
+  words; with it gone, the misheard-terms map in `prompts/vocab.txt` is the only
+  guard, so add to it whenever a term comes back wrong.
 
 The client sets a 500s request timeout (`condense.py`), 40s under the function's
 540s limit, so a slow model call surfaces as a caught exception with a Telegram

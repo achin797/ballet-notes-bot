@@ -1,6 +1,6 @@
 functions-framework
 google-auth
 google-cloud-firestore
-google-genai
+google-genai>=2.34.0
 requests
 tzdata
